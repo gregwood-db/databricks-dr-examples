@@ -5,7 +5,7 @@
 # a local profile connected to the secondary workspace. The dest_bucket and manifest variables
 # should be the same as the clone_to_secondary values.
 
-dest_bucket = "s3://path/to/intermediate/location"
+source_bucket = "s3://path/to/intermediate/location"
 manifest_name = "manifest"
 
 # read the manifest table
@@ -22,8 +22,10 @@ for row in manifest_df.collect():
     if tbl_type == "MANAGED":
         print(f"Creating MANAGED table {catalog}.{schema}.{table_name}...")
         sqlstring = f"CREATE TABLE {catalog}.{schema}.{table_name} DEEP CLONE delta.`{location}`"
+        sql(sqlstring)
     elif tbl_type == "EXTERNAL":
         print(f"Creating EXTERNAL table {catalog}.{schema}.{table_name}...")
         sqlstring = f"CREATE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
+        sql(sqlstring)
     else:
         print(f"Skipping table {catalog}.{schema}.{table_name}; please check manifest file.")
