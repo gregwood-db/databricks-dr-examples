@@ -74,7 +74,7 @@ for cred in creds_to_create:
                                             read_only=cred_read_only,
                                             comment=cred_comment,
                                             aws_iam_role=cred_iam_role)
-    elif cloud_type == "azure":
+        elif cloud_type == "azure":
         # get SP and Mgd ID info based off of name
         try:
             managed_id_connector = \
@@ -89,16 +89,21 @@ for cred in creds_to_create:
             continue
 
         # create storage credential in target WS
-        cred_mgd_id = catalog.AzureManagedIdentityRequest(access_connector_id=managed_id_connector,
-                                                          managed_identity_id=managed_id_identity)
-        cred_sp = catalog.AzureServicePrincipal(directory_id=sp_directory,
-                                                application_id=sp_appid,
-                                                client_secret=sp_secret)
-        w_target.storage_credentials.create(name=cred_name,
-                                            read_only=cred_read_only,
-                                            comment=cred_comment,
-                                            azure_managed_identity=cred_mgd_id,
-                                            azure_service_principal=cred_sp)
+        if managed_id_connector:
+            cred_mgd_id = catalog.AzureManagedIdentityRequest(access_connector_id=managed_id_connector,
+                                                              managed_identity_id=managed_id_identity)
+            w_target.storage_credentials.create(name=cred_name,
+                                                read_only=cred_read_only,
+                                                comment=cred_comment,
+                                                azure_managed_identity=cred_mgd_id)
+        else:
+            cred_sp = catalog.AzureServicePrincipal(directory_id=sp_directory,
+                                                    application_id=sp_appid,
+                                                    client_secret=sp_secret)
+            w_target.storage_credentials.create(name=cred_name,
+                                                read_only=cred_read_only,
+                                                comment=cred_comment,
+                                                azure_service_principal=cred_sp)
 
     elif cloud_type == "gcp":
         print("GCP not yet implemented.")
