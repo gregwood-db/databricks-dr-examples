@@ -24,7 +24,10 @@ system_info = sql("SELECT * FROM system.information_schema.tables")
 
 # loop through all catalogs to copy, then copy all tables excluding system tables.
 for catalog in catalogs_to_copy:
-  filtered_tables = system_info.filter((system_info.table_catalog == catalog) & (system_info.table_schema != "information_schema"))
+  filtered_tables = system_info.filter((system_info.table_catalog == catalog) 
+                                       & (system_info.table_schema != "information_schema")
+                                       & (system_info.table_type != "VIEW"))
+  
   for table in filtered_tables.collect():
     schema = table['table_schema']
     table_name = table['table_name']
