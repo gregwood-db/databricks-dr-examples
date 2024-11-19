@@ -68,7 +68,7 @@ for cred in creds_to_create:
         # get cred IAM role based off of name
         try:
             iam_role_arn = cred_df['target_iam_role'].loc[cred_df['source_cred_name'] == cred_name].iloc[0]
-        except KeyError:
+        except (KeyError, IndexError):
             print(f"Could not create credential {cred_name}. Please check mapping file.")
             continue
 
@@ -88,7 +88,7 @@ for cred in creds_to_create:
             sp_directory = cred_df['target_sp_directory'].loc[cred_df['source_cred_name'] == cred_name].iloc[0]
             sp_appid = cred_df['target_sp_appid'].loc[cred_df['source_cred_name'] == cred_name].iloc[0]
             sp_secret = cred_df['target_sp_secret'].loc[cred_df['source_cred_name'] == cred_name].iloc[0]
-        except KeyError:
+        except (KeyError, IndexError):
             print(f"Could not create credential {cred_name}. Please check mapping file.")
             continue
 
@@ -151,7 +151,7 @@ for loc in locs_to_create:
         try:
             url = loc_df['target_url'].loc[loc_df['source_loc_name'] == loc_name].iloc[0]
             access_pt = loc_df['target_access_pt'].loc[loc_df['source_loc_name'] == loc_name].iloc[0]
-        except KeyError:
+        except (KeyError, IndexError):
             print(f"Could not create location {loc_name}. Please check mapping file.")
             continue
 
