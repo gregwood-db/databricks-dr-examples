@@ -29,6 +29,11 @@ for catalog in catalogs_to_copy:
     schema = table['table_schema']
     table_name = table['table_name']
     table_type = table['table_type']
+
+    # skip views
+    if table_type == "VIEW":
+      continue
+    
     print(f"Copying table {schema}.{table_name}...")
     sqlstring = f"CREATE TABLE delta.`{dest_bucket}/{catalog}_{schema}_{table_name}` DEEP CLONE {catalog}.{schema}.{table_name}"
     sql(sqlstring)
