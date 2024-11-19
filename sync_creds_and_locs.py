@@ -26,8 +26,8 @@ import pandas as pd
 
 # inputs
 cloud_type = "aws"
-cred_mapping_file = "aws_cred_mapping.csv"
-loc_mapping_file = "ext_location_mapping.csv"
+cred_mapping_file = "data/aws_cred_mapping.csv"
+loc_mapping_file = "data/ext_location_mapping.csv"
 source_host = "https://<my-source-workspace>.cloud.databricks.com/"
 source_pat = "<source_workspace_PAT>"
 target_host = "https://<my-target-workspace>.cloud.databricks.com/"
