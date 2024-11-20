@@ -54,7 +54,11 @@ def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
             time.sleep(response_backoff)
 
         if resp.status.state != StatementState.SUCCEEDED:
-            raise Exception
+            return {"catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name,
+                    "table_type": f"COPY_ERROR: {resp.status.error.message}",
+                    "location": "N/A"}
 
         # return the table params in dict; used to build manifest
         return {"catalog": catalog,
@@ -64,18 +68,11 @@ def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
                 "location": bucket}
 
     except Exception:
-        if "resp" in locals():
-            return {"catalog": catalog,
-                    "schema": schema,
-                    "table_name": table_name,
-                    "table_type": f"COPY_ERROR: {resp.status.error.message}",
-                    "location": "N/A"}
-        else:
-            return {"catalog": catalog,
-                    "schema": schema,
-                    "table_name": table_name,
-                    "table_type": "COPY_ERROR: UNKNOWN ERROR",
-                    "location": "N/A"}
+        return {"catalog": catalog,
+                "schema": schema,
+                "table_name": table_name,
+                "table_type": "COPY_ERROR: UNKNOWN ERROR",
+                "location": "N/A"}
 
 
 # helper function to load tables from a specified location
@@ -96,7 +93,13 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                 time.sleep(response_backoff)
 
             if resp.status.state != StatementState.SUCCEEDED:
-                raise Exception
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": f"FAIL: {resp.status.error.message}",
+                        "creation_time": time.time_ns()}
 
             return {"catalog": catalog,
                     "schema": schema,
@@ -107,22 +110,13 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                     "creation_time": time.time_ns()}
 
         except Exception:
-            if "resp" in locals():
-                return {"catalog": catalog,
-                        "schema": schema,
-                        "table_name": table_name,
-                        "table_type": table_type,
-                        "location": location,
-                        "status": f"FAIL: {resp.status.error.message}",
-                        "creation_time": time.time_ns()}
-            else:
-                return {"catalog": catalog,
-                        "schema": schema,
-                        "table_name": table_name,
-                        "table_type": table_type,
-                        "location": location,
-                        "status": "FAIL: UNKNOWN ERROR",
-                        "creation_time": time.time_ns()}
+            return {"catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name,
+                    "table_type": table_type,
+                    "location": location,
+                    "status": "FAIL: UNKNOWN ERROR",
+                    "creation_time": time.time_ns()}
 
     elif table_type == "EXTERNAL":
         print(f"Creating EXTERNAL table {catalog}.{schema}.{table_name}...")
@@ -140,7 +134,13 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                 time.sleep(response_backoff)
 
             if resp.status.state != StatementState.SUCCEEDED:
-                raise Exception
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": f"FAIL: {resp.status.error.message}",
+                        "creation_time": time.time_ns()}
 
             return {"catalog": catalog,
                     "schema": schema,
@@ -151,22 +151,13 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                     "creation_time": time.time_ns()}
 
         except Exception:
-            if "resp" in locals():
-                return {"catalog": catalog,
-                        "schema": schema,
-                        "table_name": table_name,
-                        "table_type": table_type,
-                        "location": location,
-                        "status": f"FAIL: {resp.status.error.message}",
-                        "creation_time": time.time_ns()}
-            else:
-                return {"catalog": catalog,
-                        "schema": schema,
-                        "table_name": table_name,
-                        "table_type": table_type,
-                        "location": location,
-                        "status": "FAIL: UNKNOWN FAILURE",
-                        "creation_time": time.time_ns()}
+            return {"catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name,
+                    "table_type": table_type,
+                    "location": location,
+                    "status": "FAIL: UNKNOWN FAILURE",
+                    "creation_time": time.time_ns()}
 
     else:
         print(f"Skipping table {catalog}.{schema}.{table_name}; please check manifest file.")
