@@ -64,62 +64,109 @@ def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
                 "location": bucket}
 
     except Exception:
-        return {"catalog": catalog,
-                "schema": schema,
-                "table_name": table_name,
-                "table_type": "COPY_ERROR",
-                "location": "N/A"}
+        if resp in locals():
+            return {"catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name,
+                    "table_type": f"COPY_ERROR: {resp.status.error.message}",
+                    "location": "N/A"}
+        else:
+            return {"catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name,
+                    "table_type": "COPY_ERROR: UNKNOWN ERROR",
+                    "location": "N/A"}
 
 
 # helper function to load tables from a specified location
 def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
     if table_type == "MANAGED":
         print(f"Creating MANAGED table {catalog}.{schema}.{table_name}...")
-        sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} DEEP CLONE delta.`{location}`"
-        resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
-                                                       wait_timeout="0s",
-                                                       on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
-                                                       disposition=Disposition("EXTERNAL_LINKS"),
-                                                       statement=sqlstring)
+        try:
+            sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} DEEP CLONE delta.`{location}`"
+            resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
+                                                           wait_timeout="0s",
+                                                           on_wait_timeout=ExecuteStatementRequestOnWaitTimeout(
+                                                               "CONTINUE"),
+                                                           disposition=Disposition("EXTERNAL_LINKS"),
+                                                           statement=sqlstring)
 
-        while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
-            resp = w.statement_execution.get_statement(resp.statement_id)
-            time.sleep(response_backoff)
+            while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
+                resp = w.statement_execution.get_statement(resp.statement_id)
+                time.sleep(response_backoff)
 
-        if resp.status.state != StatementState.SUCCEEDED:
-            raise Exception
+            if resp.status.state != StatementState.SUCCEEDED:
+                raise Exception
 
-        return {"catalog": catalog,
-                "schema": schema,
-                "table_name": table_name,
-                "table_type": table_type,
-                "location": location,
-                "status": "SUCCESS",
-                "creation_time": time.time_ns()}
+            return {"catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name,
+                    "table_type": table_type,
+                    "location": location,
+                    "status": "SUCCESS",
+                    "creation_time": time.time_ns()}
+
+        except Exception:
+            if resp in locals():
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": f"FAIL: {resp.status.error.message}",
+                        "creation_time": time.time_ns()}
+            else:
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": "FAIL: UNKNOWN ERROR",
+                        "creation_time": time.time_ns()}
 
     elif table_type == "EXTERNAL":
         print(f"Creating EXTERNAL table {catalog}.{schema}.{table_name}...")
-        sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
-        resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
-                                                       wait_timeout="0s",
-                                                       on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
-                                                       disposition=Disposition("EXTERNAL_LINKS"),
-                                                       statement=sqlstring)
 
-        while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
-            resp = w.statement_execution.get_statement(resp.statement_id)
-            time.sleep(response_backoff)
+        try:
+            sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
+            resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
+                                                           wait_timeout="0s",
+                                                           on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
+                                                           disposition=Disposition("EXTERNAL_LINKS"),
+                                                           statement=sqlstring)
 
-        if resp.status.state != StatementState.SUCCEEDED:
-            raise Exception
+            while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
+                resp = w.statement_execution.get_statement(resp.statement_id)
+                time.sleep(response_backoff)
 
-        return {"catalog": catalog,
-                "schema": schema,
-                "table_name": table_name,
-                "table_type": table_type,
-                "location": location,
-                "status": "SUCCESS",
-                "creation_time": time.time_ns()}
+            if resp.status.state != StatementState.SUCCEEDED:
+                raise Exception
+
+            return {"catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name,
+                    "table_type": table_type,
+                    "location": location,
+                    "status": "SUCCESS",
+                    "creation_time": time.time_ns()}
+
+        except Exception:
+            if resp in locals():
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": f"FAIL: {resp.status.error.message}",
+                        "creation_time": time.time_ns()}
+            else:
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": "FAIL: UNKNOWN FAILURE",
+                        "creation_time": time.time_ns()}
 
     else:
         print(f"Skipping table {catalog}.{schema}.{table_name}; please check manifest file.")
