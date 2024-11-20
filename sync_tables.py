@@ -2,7 +2,7 @@
 #
 # Baseline script to sync tables from a primary workspace to a secondary workspace.
 #
-# NOTE: This script must be run in the PRIMARY workspace. This simplifies and accelerates system table fetch and writes
+# NOTE: This script must be run in the PRIMARY workspace. This simplifies and accelerates system table fetch and
 # spark writes to the target bucket.
 #
 # This script will attempt to use DEEP CLONE on all tables within the specified catalog(s), and will then create those
