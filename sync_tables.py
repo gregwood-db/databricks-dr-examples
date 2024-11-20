@@ -2,7 +2,7 @@
 #
 # Baseline script to sync tables from a primary workspace to a secondary workspace.
 #
-# NOTE: This script must be run in the PRIMARY workspace. This simplifies and accelerates system table fetch and
+# NOTE: This script must be run in the PRIMARY workspace. This simplifies and accelerates system table fetch and writes
 # spark writes to the target bucket.
 #
 # This script will attempt to use DEEP CLONE on all tables within the specified catalog(s), and will then create those
@@ -12,19 +12,19 @@
 # Please note that this script uses Severless compute by default to avoid waiting for classic warehouse startup times.
 #
 # Params that must be specified below:
-#   -landing_zone_url: the bucket, storage account, etc. where data will be written. This _must_ be in the secondary
-#    region, not the primary region. It _must_ be accessible from both the primary and secondary workspace.
-#   -source_host: the hostname of the primary workspace.
-#   -source_pat: an access token for the primary workspace; must be an ADMIN user.
-#   -target_host: the hostname of the secondary workspace.
-#   -target_pat: an access token for the secondary workspace; must be an ADMIN user.
+#   -target_bucket: the bucket, storage account, etc. where data will be written. This _must_ be in the secondary
+#    region, not the primary region.
+#   -primary_host: the hostname of the primary workspace.
+#   -primary_pat: an access token for the primary workspace; must be an ADMIN user.
+#   -secondary_host: the hostname of the secondary workspace.
+#   -secondary_pat: an access token for the secondary workspace; must be an ADMIN user.
 #   -catalogs_to_copy: a list of the catalogs to be replicated between workspaces.
 #   -manifest_name: the name of the manifest file that will be generated to track table copies.
 #   -num_exec: the number of threads to spawn in the ThreadPoolExecutor.
 #   -warehouse_size: the size of the serverless warehouse to be created.
 #
 # To improve throughput, this script uses TheadPoolExecutors to parallelize submission of statements to the databricks
-# warehouse. Table load statuses will be written to the delta table at {landing_zone_url}/sync_status_{time.time_ns()}.
+# warehouse. All table load statuses will be written to the delta table at {target_bucket}/sync_status_{time.time_ns()}.
 
 
 import time
@@ -42,7 +42,7 @@ from databricks.sdk.service.sql import ExecuteStatementRequestOnWaitTimeout
 # helper function to copy tables
 def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
     try:
-        sqlstring = f"CREATE OR REPLACE TABLE delta.`{bucket}/{catalog}_{schema}_{table_name}` DEEP CLONE {catalog}.{schema}.{table_name}"
+        sqlstring = f"CREATE TABLE delta.`{bucket}/{catalog}_{schema}_{table_name}` DEEP CLONE {catalog}.{schema}.{table_name}"
         resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
                                                        wait_timeout="0s",
                                                        on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
@@ -54,11 +54,7 @@ def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
             time.sleep(response_backoff)
 
         if resp.status.state != StatementState.SUCCEEDED:
-            return {"catalog": catalog,
-                    "schema": schema,
-                    "table_name": table_name,
-                    "table_type": f"COPY_ERROR: {resp.status.error.message}",
-                    "location": "N/A"}
+            raise Exception
 
         # return the table params in dict; used to build manifest
         return {"catalog": catalog,
@@ -68,45 +64,18 @@ def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
                 "location": bucket}
 
     except Exception:
-        return {"catalog": catalog,
-                "schema": schema,
-                "table_name": table_name,
-                "table_type": "COPY_ERROR: UNKNOWN ERROR",
-                "location": "N/A"}
-
-
-# helper function to drop external tables
-def drop_table(w, catalog, schema, table_name, warehouse):
-    print(f"Dropping table {catalog}.{schema}.{table_name}...")
-
-    try:
-        sqlstring = f"DROP TABLE IF EXISTS {catalog}.{schema}.{table_name}"
-        resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
-                                                       wait_timeout="0s",
-                                                       on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
-                                                       disposition=Disposition("EXTERNAL_LINKS"),
-                                                       statement=sqlstring)
-
-        while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
-            resp = w.statement_execution.get_statement(resp.statement_id)
-            time.sleep(response_backoff)
-
-        if resp.status.state != StatementState.SUCCEEDED:
-            return {"status": 0,
-                    "catalog": catalog,
+        if resp in locals():
+            return {"catalog": catalog,
                     "schema": schema,
-                    "table_name": table_name}
-
-        return {"status": 1,
-                "catalog": catalog,
-                "schema": schema,
-                "table_name": table_name}
-
-    except Exception:
-        return {"status": 0,
-                "catalog": catalog,
-                "schema": schema,
-                "table_name": table_name}
+                    "table_name": table_name,
+                    "table_type": f"COPY_ERROR: {resp.status.error.message}",
+                    "location": "N/A"}
+        else:
+            return {"catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name,
+                    "table_type": "COPY_ERROR: UNKNOWN ERROR",
+                    "location": "N/A"}
 
 
 # helper function to load tables from a specified location
@@ -127,13 +96,7 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                 time.sleep(response_backoff)
 
             if resp.status.state != StatementState.SUCCEEDED:
-                return {"catalog": catalog,
-                        "schema": schema,
-                        "table_name": table_name,
-                        "table_type": table_type,
-                        "location": location,
-                        "status": f"FAIL: {resp.status.error.message}",
-                        "creation_time": time.time_ns()}
+                raise Exception
 
             return {"catalog": catalog,
                     "schema": schema,
@@ -144,20 +107,28 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                     "creation_time": time.time_ns()}
 
         except Exception:
-            return {"catalog": catalog,
-                    "schema": schema,
-                    "table_name": table_name,
-                    "table_type": table_type,
-                    "location": location,
-                    "status": "FAIL: UNKNOWN ERROR",
-                    "creation_time": time.time_ns()}
+            if resp in locals():
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": f"FAIL: {resp.status.error.message}",
+                        "creation_time": time.time_ns()}
+            else:
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": "FAIL: UNKNOWN ERROR",
+                        "creation_time": time.time_ns()}
 
     elif table_type == "EXTERNAL":
         print(f"Creating EXTERNAL table {catalog}.{schema}.{table_name}...")
 
         try:
-            # must drop table if it exists; CREATE_OR_REPLACE does not work when specifying external location
-            sqlstring = f"CREATE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
+            sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
             resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
                                                            wait_timeout="0s",
                                                            on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
@@ -169,13 +140,7 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                 time.sleep(response_backoff)
 
             if resp.status.state != StatementState.SUCCEEDED:
-                return {"catalog": catalog,
-                        "schema": schema,
-                        "table_name": table_name,
-                        "table_type": table_type,
-                        "location": location,
-                        "status": f"FAIL: {resp.status.error.message}",
-                        "creation_time": time.time_ns()}
+                raise Exception
 
             return {"catalog": catalog,
                     "schema": schema,
@@ -186,13 +151,22 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                     "creation_time": time.time_ns()}
 
         except Exception:
-            return {"catalog": catalog,
-                    "schema": schema,
-                    "table_name": table_name,
-                    "table_type": table_type,
-                    "location": location,
-                    "status": "FAIL: UNKNOWN FAILURE",
-                    "creation_time": time.time_ns()}
+            if resp in locals():
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": f"FAIL: {resp.status.error.message}",
+                        "creation_time": time.time_ns()}
+            else:
+                return {"catalog": catalog,
+                        "schema": schema,
+                        "table_name": table_name,
+                        "table_type": table_type,
+                        "location": location,
+                        "status": "FAIL: UNKNOWN FAILURE",
+                        "creation_time": time.time_ns()}
 
     else:
         print(f"Skipping table {catalog}.{schema}.{table_name}; please check manifest file.")
@@ -203,14 +177,31 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                 "location": location,
                 "status": "FAILURE",
                 "creation_time": "N/A"}
+        
+# helper function to update the grants based on the securable type
+def update_grant(w, object_list, securable_type):
+    for obj in object_list:
+        name, principal, privilege = obj
+        privilege_enum = getattr(catalog.Privilege, privilege)
+        # Run the update command for each object in the list
+        w.grants.update(
+            full_name=name,
+            securable_type=securable_type,
+            changes=[
+                catalog.PermissionsChange(
+                    add=[privilege_enum],
+                    principal=principal
+                )
+            ]
+        )
 
 
 # script inputs
-landing_zone_url = "<my_bucket_url>"
-source_host = "<primary-workspace-url>"
-source_pat = "<primary-workspace-pat>"
-target_host = "<secondary-workspace-url>"
-target_pat = "<secondary-workspace-pat>"
+target_bucket = "<my_bucket_url>"
+primary_host = "<primary-workspace-url>"
+primary_pat = "<primary-workspace-pat>"
+secondary_host = "<secondary-workspace-url>"
+secondary_pat = "<secondary-workspace-pat>"
 catalogs_to_copy = ["my-catalog1", "my-catalog2"]
 manifest_name = "manifest"
 num_exec = 4
@@ -228,10 +219,8 @@ copied_table_catalogs = []
 copied_table_locations = []
 
 # create the WorkspaceClient pointed at the source WS
-w_source = WorkspaceClient(host=source_host, token=source_pat)
+w_source = WorkspaceClient(host=primary_host, token=primary_pat)
 
-# create warehouse in the primary workspace
-print("Creating warehouse in primary workspace...")
 wh_source = w_source.warehouses.create(name=f'sdk-{time.time_ns()}',
                                        cluster_size=warehouse_size,
                                        max_num_clusters=1,
@@ -243,6 +232,13 @@ wh_source = w_source.warehouses.create(name=f'sdk-{time.time_ns()}',
                                                dbsql.EndpointTagPair(key="Owner", value="dr-sync-tool")])).result()
 
 system_info = sql("SELECT * FROM system.information_schema.tables")
+
+processed_catalog_grants = set()
+processed_schema_grants = set()
+
+catalog_grants_list = []
+schema_grants_list = []
+table_grants_list = []
 
 # loop through all catalogs to copy, then copy all tables excluding system tables.
 # we also skip views; these need to be created separately since they cannot be cloned.
@@ -265,7 +261,7 @@ for cat in catalogs_to_copy:
                                schemas,
                                table_names,
                                table_types,
-                               repeat(landing_zone_url),
+                               repeat(target_bucket),
                                repeat(wh_source.id))
 
         # wait for threads to execute and build lists for manifest
@@ -278,6 +274,51 @@ for cat in catalogs_to_copy:
                 "{}/{}_{}_{}".format(thread["location"], thread["catalog"], thread["schema"], thread["table_name"]))
             print("Copied table {}.{}.{}.".format(thread["catalog"], thread["schema"], thread["table_name"]))
 
+            # Step 1: Retrieve and process catalog grants
+            catalog_grants = w_source.grants.get_effective(catalog.SecurableType.CATALOG, thread["catalog"])
+            if catalog_grants and thread["catalog"] not in processed_catalog_grants:
+                processed_catalog_grants.add(thread["catalog"])  # Mark catalog as processed
+
+                # Extract principal and privilege for catalog grants
+                for privilege_assignment in catalog_grants.privilege_assignments:
+                    for privilege in privilege_assignment.privileges:
+                        catalog_principal = privilege_assignment.principal
+                        catalog_privilege = privilege.privilege.name  # Get the name of the privilege (e.g., 'USE_CATALOG')
+
+                        # Append principal and privilege to the catalog_grants_list
+                        catalog_grants_list.append((thread['catalog'],catalog_principal, catalog_privilege))
+
+            # Step 2: Retrieve and process schema grants
+            schema_grants = w_source.grants.get_effective(catalog.SecurableType.SCHEMA, thread["catalog"]+"."+thread["schema"])
+            if schema_grants and thread["catalog"]+"."+thread["schema"] not in processed_schema_grants:
+                processed_schema_grants.add(thread["catalog"]+"."+thread["schema"])  # Mark schema as processed
+                print(thread["catalog"]+"."+thread["schema"])
+                print(schema_grants.privilege_assignments)
+                # Extract principal and privilege for schema grants
+                for privilege_assignment in schema_grants.privilege_assignments:
+                    for privilege in privilege_assignment.privileges:
+                        if privilege.inherited_from_name == None:
+                            schema_principal = privilege_assignment.principal
+                            schema_privilege = privilege.privilege.name  # Get the name of the privilege (e.g., 'USAGE')
+
+                            # Append principal and privilege to the schema_grants_list
+                            schema_grants_list.append((thread["catalog"]+"."+thread["schema"],schema_principal, schema_privilege))
+                        else:
+                            print(f"Skipping schema grant (inherited): {privilege_assignment.principal} - Privilege={privilege.privilege.name}")
+
+            # Step 3: Retrieve and append table grants (no uniqueness check required for tables)
+            table_grants = w_source.grants.get_effective(catalog.SecurableType.TABLE, thread["catalog"]+"."+thread["schema"]+"."+thread["table_name"])
+            if table_grants:
+                for privilege_assignment in table_grants.privilege_assignments:
+                    for privilege in privilege_assignment.privileges:
+                        if privilege.inherited_from_name == None:
+                            table_principal = privilege_assignment.principal
+                            table_privilege = privilege.privilege.name  # Get the name of the privilege (e.g., 'SELECT')
+
+                            # Append principal and privilege to the table_grants_list
+                            table_grants_list.append((thread["catalog"]+"."+thread["schema"]+"."+thread["table_name"],table_principal, table_privilege))
+        
+
 # create the manifest as a df and write to a table in dr target
 # this contains catalog, schema, table and location
 manifest_df = pd.DataFrame({"catalog": copied_table_catalogs,
@@ -287,17 +328,15 @@ manifest_df = pd.DataFrame({"catalog": copied_table_catalogs,
                             "type": copied_table_types})
 
 # write the manifest to the target bucket in case it needs to be accessed later
-ts1 = time.time_ns()
 (spark.createDataFrame(manifest_df)
  .write.mode("overwrite")
  .format("delta")
- .save(f"{landing_zone_url}/{manifest_name}-{ts1}"))
+ .save(f"{target_bucket}/{manifest_name}-{time.time_ns()}"))
 
 # create the WorkspaceClient pointed at the target WS
-w_target = WorkspaceClient(host=target_host, token=target_pat)
+w_target = WorkspaceClient(host=secondary_host, token=secondary_pat)
 
 # create warehouse to run table creation statements
-print("Creating warehouse in secondary workspace...")
 wh_target = w_target.warehouses.create(name=f'sdk-{time.time_ns()}',
                                        cluster_size=warehouse_size,
                                        max_num_clusters=1,
@@ -317,31 +356,23 @@ loaded_table_locations = []
 loaded_table_status = []
 loaded_table_times = []
 
-# drop external tables before loading due to CREATE TABLE restrictions
-external_df = manifest_df[manifest_df['type'] == 'EXTERNAL']
-with ThreadPoolExecutor(max_workers=num_exec) as executor:
-    threads = executor.map(drop_table,
-                           repeat(w_target),
-                           list(external_df['catalog']),
-                           list(external_df['schema']),
-                           list(external_df['table']),
-                           repeat(wh_target.id))
+# create lists of table params for executor submission
+collected_manifest = manifest_df.collect()
+tbl_catalogs = [row['catalog'] for row in collected_manifest]
+tbl_schemas = [row['schema'] for row in collected_manifest]
+tbl_names = [row['table'] for row in collected_manifest]
+tbl_locs = [row["location"] for row in collected_manifest]
+tbl_types = [row["type"] for row in collected_manifest]
 
-    for thread in threads:
-        if thread["status"]:
-            print("Dropped table {}.{}.{}.".format(thread["catalog"], thread["schema"], thread["table_name"]))
-        else:
-            print("Error dropping table {}.{}.{}.".format(thread["catalog"], thread["schema"], thread["table_name"]))
-
-# load all tables
+# use ThreadPool to load tables in parallel
 with ThreadPoolExecutor(max_workers=num_exec) as executor:
     threads = executor.map(load_table,
                            repeat(w_target),
-                           list(manifest_df['catalog']),
-                           list(manifest_df['schema']),
-                           list(manifest_df['table']),
-                           list(manifest_df['type']),
-                           list(manifest_df['location']),
+                           tbl_catalogs,
+                           tbl_schemas,
+                           tbl_names,
+                           tbl_types,
+                           tbl_locs,
                            repeat(wh_target.id))
 
     for thread in threads:
@@ -361,11 +392,18 @@ status_df = pd.DataFrame({"catalog": loaded_table_catalogs,
                           "location": loaded_table_locations,
                           "type": loaded_table_types,
                           "status": loaded_table_status,
-                          "sync_time": loaded_table_times})
+                          "create_time": loaded_table_times})
 
 # table will get a specific timestamp-based location per run
-ts2 = time.time_ns()
 (spark.createDataFrame(status_df)
  .write.mode("overwrite")
  .format("delta")
- .save(f"{landing_zone_url}/sync_status_{ts2}"))
+ .save(f"{target_bucket}/sync_status_{time.time_ns()}"))
+
+# update grants against catalogs, schemas, and grants
+# Process Catalog List
+update_grant(catalog_grants_list, catalog.SecurableType.CATALOG)
+# Process Schema List
+update_grant(schema_grant_list, catalog.SecurableType.SCHEMA)
+# Process Table List
+update_grant(table_grant_list, catalog.SecurableType.TABLE)
