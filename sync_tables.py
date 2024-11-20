@@ -33,8 +33,9 @@ from itertools import repeat
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import sql as dbsql
 from concurrent.futures import ThreadPoolExecutor
-from databricks.sdk.service.sql import CreateWarehouseRequestWarehouseType
 from databricks.sdk.service.sql import Disposition
+from databricks.sdk.service.sql import StatementState
+from databricks.sdk.service.sql import CreateWarehouseRequestWarehouseType
 from databricks.sdk.service.sql import ExecuteStatementRequestOnWaitTimeout
 
 
@@ -42,11 +43,18 @@ from databricks.sdk.service.sql import ExecuteStatementRequestOnWaitTimeout
 def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
     try:
         sqlstring = f"CREATE TABLE delta.`{bucket}/{catalog}_{schema}_{table_name}` DEEP CLONE {catalog}.{schema}.{table_name}"
-        w.statement_execution.execute_statement(warehouse_id=warehouse,
-                                                wait_timeout="0s",
-                                                on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
-                                                disposition=Disposition("EXTERNAL_LINKS"),
-                                                statement=sqlstring)
+        resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
+                                                       wait_timeout="0s",
+                                                       on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
+                                                       disposition=Disposition("EXTERNAL_LINKS"),
+                                                       statement=sqlstring)
+
+        while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
+            resp = w.statement_execution.get_statement(resp.statement_id)
+            time.sleep(response_backoff)
+
+        if resp.status.state != StatementState.SUCCEEDED:
+            raise Exception
 
         # return the table params in dict; used to build manifest
         return {"catalog": catalog,
@@ -68,11 +76,19 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
     if table_type == "MANAGED":
         print(f"Creating MANAGED table {catalog}.{schema}.{table_name}...")
         sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} DEEP CLONE delta.`{location}`"
-        w.statement_execution.execute_statement(warehouse_id=warehouse,
-                                                wait_timeout="0s",
-                                                on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
-                                                disposition=Disposition("EXTERNAL_LINKS"),
-                                                statement=sqlstring)
+        resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
+                                                       wait_timeout="0s",
+                                                       on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
+                                                       disposition=Disposition("EXTERNAL_LINKS"),
+                                                       statement=sqlstring)
+
+        while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
+            resp = w.statement_execution.get_statement(resp.statement_id)
+            time.sleep(response_backoff)
+
+        if resp.status.state != StatementState.SUCCEEDED:
+            raise Exception
+
         return {"catalog": catalog,
                 "schema": schema,
                 "table_name": table_name,
@@ -84,11 +100,19 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
     elif table_type == "EXTERNAL":
         print(f"Creating EXTERNAL table {catalog}.{schema}.{table_name}...")
         sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
-        w.statement_execution.execute_statement(warehouse_id=warehouse,
-                                                wait_timeout="0s",
-                                                on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
-                                                disposition=Disposition("EXTERNAL_LINKS"),
-                                                statement=sqlstring)
+        resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
+                                                       wait_timeout="0s",
+                                                       on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
+                                                       disposition=Disposition("EXTERNAL_LINKS"),
+                                                       statement=sqlstring)
+
+        while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
+            resp = w.statement_execution.get_statement(resp.statement_id)
+            time.sleep(response_backoff)
+
+        if resp.status.state != StatementState.SUCCEEDED:
+            raise Exception
+
         return {"catalog": catalog,
                 "schema": schema,
                 "table_name": table_name,
@@ -118,7 +142,10 @@ catalogs_to_copy = ["my-catalog1", "my-catalog2"]
 manifest_name = "manifest"
 num_exec = 4
 warehouse_size = "Large"
-wh_type = CreateWarehouseRequestWarehouseType("PRO")
+
+# other parameters
+wh_type = CreateWarehouseRequestWarehouseType("PRO")  # required for serverless warehouse
+response_backoff = 0.5  # backoff for checking query state
 
 # initialize lists
 copied_table_names = []
