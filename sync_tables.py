@@ -404,6 +404,6 @@ status_df = pd.DataFrame({"catalog": loaded_table_catalogs,
 # Process Catalog List
 update_grant(catalog_grants_list, catalog.SecurableType.CATALOG)
 # Process Schema List
-update_grant(schema_grant_list, catalog.SecurableType.SCHEMA)
+update_grant(schema_grants_list, catalog.SecurableType.SCHEMA)
 # Process Table List
-update_grant(table_grant_list, catalog.SecurableType.TABLE)
+update_grant(table_grants_list, catalog.SecurableType.TABLE)
