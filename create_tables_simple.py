@@ -1,4 +1,4 @@
-# create_secondary_tables.py
+# create_tables_simple.py
 #
 # This script creates tables in the secondary workspace based on the manifest file created by
 # clone_to_secondary or clone_to_secondary_par. It should be run in the secondary workspace, or using
