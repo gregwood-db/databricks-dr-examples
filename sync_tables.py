@@ -64,7 +64,7 @@ def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
                 "location": bucket}
 
     except Exception:
-        if resp in locals():
+        if "resp" in locals():
             return {"catalog": catalog,
                     "schema": schema,
                     "table_name": table_name,
@@ -107,7 +107,7 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                     "creation_time": time.time_ns()}
 
         except Exception:
-            if resp in locals():
+            if "resp" in locals():
                 return {"catalog": catalog,
                         "schema": schema,
                         "table_name": table_name,
@@ -151,7 +151,7 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                     "creation_time": time.time_ns()}
 
         except Exception:
-            if resp in locals():
+            if "resp" in locals():
                 return {"catalog": catalog,
                         "schema": schema,
                         "table_name": table_name,
