@@ -398,7 +398,7 @@ status_df = pd.DataFrame({"catalog": loaded_table_catalogs,
 (spark.createDataFrame(status_df)
  .write.mode("overwrite")
  .format("delta")
- .save(f"{target_bucket}/sync_status_{time.time_ns()}"))
+ .save(f"{landing_zone_url}/sync_status_{ts2}"))
 
 # update grants against catalogs, schemas, and grants
 # Process Catalog List
