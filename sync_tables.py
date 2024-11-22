@@ -42,7 +42,7 @@ from databricks.sdk.service.sql import ExecuteStatementRequestOnWaitTimeout
 # helper function to copy tables
 def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
     try:
-        sqlstring = f"CREATE TABLE delta.`{bucket}/{catalog}_{schema}_{table_name}` DEEP CLONE {catalog}.{schema}.{table_name}"
+        sqlstring = f"CREATE OR REPLACE TABLE delta.`{bucket}/{catalog}_{schema}_{table_name}` DEEP CLONE {catalog}.{schema}.{table_name}"
         resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
                                                        wait_timeout="0s",
                                                        on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
@@ -73,6 +73,40 @@ def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
                 "table_name": table_name,
                 "table_type": "COPY_ERROR: UNKNOWN ERROR",
                 "location": "N/A"}
+
+
+# helper function to drop external tables
+def drop_table(w, catalog, schema, table_name, warehouse):
+    print(f"Dropping table {catalog}.{schema}.{table_name}...")
+
+    try:
+        sqlstring = f"DROP TABLE IF EXISTS {catalog}.{schema}.{table_name}"
+        resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
+                                                       wait_timeout="0s",
+                                                       on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
+                                                       disposition=Disposition("EXTERNAL_LINKS"),
+                                                       statement=sqlstring)
+
+        while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
+            resp = w.statement_execution.get_statement(resp.statement_id)
+            time.sleep(response_backoff)
+
+        if resp.status.state != StatementState.SUCCEEDED:
+            return {"status": 0,
+                    "catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name}
+
+        return {"status": 1,
+                "catalog": catalog,
+                "schema": schema,
+                "table_name": table_name}
+
+    except Exception:
+        return {"status": 0,
+                "catalog": catalog,
+                "schema": schema,
+                "table_name": table_name}
 
 
 # helper function to load tables from a specified location
@@ -122,7 +156,8 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
         print(f"Creating EXTERNAL table {catalog}.{schema}.{table_name}...")
 
         try:
-            sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
+            # must drop table if it exists; CREATE_OR_REPLACE does not work when specifying external location
+            sqlstring = f"CREATE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
             resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
                                                            wait_timeout="0s",
                                                            on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
@@ -252,10 +287,11 @@ manifest_df = pd.DataFrame({"catalog": copied_table_catalogs,
                             "type": copied_table_types})
 
 # write the manifest to the target bucket in case it needs to be accessed later
+ts1 = time.time_ns()
 (spark.createDataFrame(manifest_df)
  .write.mode("overwrite")
  .format("delta")
- .save(f"{landing_zone_url}/{manifest_name}-{time.time_ns()}"))
+ .save(f"{landing_zone_url}/{manifest_name}-{ts1}"))
 
 # create the WorkspaceClient pointed at the target WS
 w_target = WorkspaceClient(host=target_host, token=target_pat)
@@ -281,22 +317,31 @@ loaded_table_locations = []
 loaded_table_status = []
 loaded_table_times = []
 
-# create lists of table params for executor submission
-tbl_catalogs = list(manifest_df['catalog'])
-tbl_schemas = list(manifest_df['schema'])
-tbl_names = list(manifest_df['table'])
-tbl_locs = list(manifest_df['location'])
-tbl_types = list(manifest_df['type'])
+# drop external tables before loading due to CREATE TABLE restrictions
+external_df = manifest_df[manifest_df['type'] == 'EXTERNAL']
+with ThreadPoolExecutor(max_workers=num_exec) as executor:
+    threads = executor.map(drop_table,
+                           repeat(w_target),
+                           list(external_df['catalog']),
+                           list(external_df['schema']),
+                           list(external_df['table']),
+                           repeat(wh_target.id))
 
-# use ThreadPool to load tables in parallel
+    for thread in threads:
+        if thread["status"]:
+            print("Dropped table {}.{}.{}.".format(thread["catalog"], thread["schema"], thread["table_name"]))
+        else:
+            print("Error dropping table {}.{}.{}.".format(thread["catalog"], thread["schema"], thread["table_name"]))
+
+# load all tables
 with ThreadPoolExecutor(max_workers=num_exec) as executor:
     threads = executor.map(load_table,
                            repeat(w_target),
-                           tbl_catalogs,
-                           tbl_schemas,
-                           tbl_names,
-                           tbl_types,
-                           tbl_locs,
+                           list(manifest_df['catalog']),
+                           list(manifest_df['schema']),
+                           list(manifest_df['table']),
+                           list(manifest_df['type']),
+                           list(manifest_df['location']),
                            repeat(wh_target.id))
 
     for thread in threads:
@@ -316,10 +361,11 @@ status_df = pd.DataFrame({"catalog": loaded_table_catalogs,
                           "location": loaded_table_locations,
                           "type": loaded_table_types,
                           "status": loaded_table_status,
-                          "create_time": loaded_table_times})
+                          "sync_time": loaded_table_times})
 
 # table will get a specific timestamp-based location per run
+ts2 = time.time_ns()
 (spark.createDataFrame(status_df)
  .write.mode("overwrite")
  .format("delta")
- .save(f"{landing_zone_url}/sync_status_{time.time_ns()}"))
+ .save(f"{landing_zone_url}/sync_status_{ts2}"))
