@@ -12,19 +12,19 @@
 # Please note that this script uses Severless compute by default to avoid waiting for classic warehouse startup times.
 #
 # Params that must be specified below:
-#   -target_bucket: the bucket, storage account, etc. where data will be written. This _must_ be in the secondary
-#    region, not the primary region.
-#   -primary_host: the hostname of the primary workspace.
-#   -primary_pat: an access token for the primary workspace; must be an ADMIN user.
-#   -secondary_host: the hostname of the secondary workspace.
-#   -secondary_pat: an access token for the secondary workspace; must be an ADMIN user.
+#   -landing_zone_url: the bucket, storage account, etc. where data will be written. This _must_ be in the secondary
+#    region, not the primary region. It _must_ be accessible from both the primary and secondary workspace.
+#   -source_host: the hostname of the primary workspace.
+#   -source_pat: an access token for the primary workspace; must be an ADMIN user.
+#   -target_host: the hostname of the secondary workspace.
+#   -target_pat: an access token for the secondary workspace; must be an ADMIN user.
 #   -catalogs_to_copy: a list of the catalogs to be replicated between workspaces.
 #   -manifest_name: the name of the manifest file that will be generated to track table copies.
 #   -num_exec: the number of threads to spawn in the ThreadPoolExecutor.
 #   -warehouse_size: the size of the serverless warehouse to be created.
 #
 # To improve throughput, this script uses TheadPoolExecutors to parallelize submission of statements to the databricks
-# warehouse. All table load statuses will be written to the delta table at {target_bucket}/sync_status_{time.time_ns()}.
+# warehouse. Table load statuses will be written to the delta table at {landing_zone_url}/sync_status_{time.time_ns()}.
 
 
 import time
@@ -171,11 +171,11 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
 
 
 # script inputs
-target_bucket = "<my_bucket_url>"
-primary_host = "<primary-workspace-url>"
-primary_pat = "<primary-workspace-pat>"
-secondary_host = "<secondary-workspace-url>"
-secondary_pat = "<secondary-workspace-pat>"
+landing_zone_url = "<my_bucket_url>"
+source_host = "<primary-workspace-url>"
+source_pat = "<primary-workspace-pat>"
+target_host = "<secondary-workspace-url>"
+target_pat = "<secondary-workspace-pat>"
 catalogs_to_copy = ["my-catalog1", "my-catalog2"]
 manifest_name = "manifest"
 num_exec = 4
@@ -193,8 +193,10 @@ copied_table_catalogs = []
 copied_table_locations = []
 
 # create the WorkspaceClient pointed at the source WS
-w_source = WorkspaceClient(host=primary_host, token=primary_pat)
+w_source = WorkspaceClient(host=source_host, token=source_pat)
 
+# create warehouse in the primary workspace
+print("Creating warehouse in primary workspace...")
 wh_source = w_source.warehouses.create(name=f'sdk-{time.time_ns()}',
                                        cluster_size=warehouse_size,
                                        max_num_clusters=1,
@@ -228,7 +230,7 @@ for cat in catalogs_to_copy:
                                schemas,
                                table_names,
                                table_types,
-                               repeat(target_bucket),
+                               repeat(landing_zone_url),
                                repeat(wh_source.id))
 
         # wait for threads to execute and build lists for manifest
@@ -253,12 +255,13 @@ manifest_df = pd.DataFrame({"catalog": copied_table_catalogs,
 (spark.createDataFrame(manifest_df)
  .write.mode("overwrite")
  .format("delta")
- .save(f"{target_bucket}/{manifest_name}-{time.time_ns()}"))
+ .save(f"{landing_zone_url}/{manifest_name}-{time.time_ns()}"))
 
 # create the WorkspaceClient pointed at the target WS
-w_target = WorkspaceClient(host=secondary_host, token=secondary_pat)
+w_target = WorkspaceClient(host=target_host, token=target_pat)
 
 # create warehouse to run table creation statements
+print("Creating warehouse in secondary workspace...")
 wh_target = w_target.warehouses.create(name=f'sdk-{time.time_ns()}',
                                        cluster_size=warehouse_size,
                                        max_num_clusters=1,
@@ -279,12 +282,11 @@ loaded_table_status = []
 loaded_table_times = []
 
 # create lists of table params for executor submission
-collected_manifest = manifest_df.collect()
-tbl_catalogs = [row['catalog'] for row in collected_manifest]
-tbl_schemas = [row['schema'] for row in collected_manifest]
-tbl_names = [row['table'] for row in collected_manifest]
-tbl_locs = [row["location"] for row in collected_manifest]
-tbl_types = [row["type"] for row in collected_manifest]
+tbl_catalogs = list(manifest_df['catalog'])
+tbl_schemas = list(manifest_df['schema'])
+tbl_names = list(manifest_df['table'])
+tbl_locs = list(manifest_df['location'])
+tbl_types = list(manifest_df['type'])
 
 # use ThreadPool to load tables in parallel
 with ThreadPoolExecutor(max_workers=num_exec) as executor:
@@ -320,4 +322,4 @@ status_df = pd.DataFrame({"catalog": loaded_table_catalogs,
 (spark.createDataFrame(status_df)
  .write.mode("overwrite")
  .format("delta")
- .save(f"{target_bucket}/sync_status_{time.time_ns()}"))
+ .save(f"{landing_zone_url}/sync_status_{time.time_ns()}"))
