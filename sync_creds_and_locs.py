@@ -52,7 +52,7 @@ source_cred_names = [x.name for x in source_creds]
 target_cred_names = [x.name for x in target_creds]
 cred_diff = list(set(source_cred_names) - set(target_cred_names))
 creds_to_create = [x for x in source_creds if x.name in cred_diff]
-cred_df = pd.read_csv(cred_mapping_file)
+cred_df = pd.read_csv(cred_mapping_file, keep_default_na=False)
 
 if not creds_to_create:
     print("All source credentials exist in target metastore.")
@@ -133,7 +133,7 @@ source_extloc_names = [x.name for x in source_extloc]
 target_extloc_names = [x.name for x in target_extloc]
 loc_diff = list(set(source_extloc_names) - set(target_extloc_names))
 locs_to_create = [x for x in source_extloc if x.name in loc_diff]
-loc_df = pd.read_csv(loc_mapping_file)
+loc_df = pd.read_csv(loc_mapping_file, keep_default_na=False)
 
 if not locs_to_create:
     print("All source external locations exist in target metastore.")
