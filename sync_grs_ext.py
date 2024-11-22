@@ -12,9 +12,9 @@
 # Please note that this script uses Severless compute by default to avoid waiting for classic warehouse startup times.
 #
 # Params that must be specified below:
-#   -target_bucket: the bucket, storage account, etc. where the status table will be written
-#   -secondary_host: the hostname of the secondary workspace.
-#   -secondary_pat: an access token for the secondary workspace; must be an ADMIN user.
+#   -landing_zone_url: the bucket, storage account, etc. where the status table will be written
+#   -target_host: the hostname of the secondary workspace.
+#   -target_pat: an access token for the secondary workspace; must be an ADMIN user.
 #   -catalogs_to_copy: a list of the catalogs to be replicated between workspaces.
 #   -num_exec: the number of threads to spawn in the ThreadPoolExecutor.
 #   -warehouse_size: the size of the serverless warehouse to be created.
@@ -35,13 +35,47 @@ from databricks.sdk.service.sql import CreateWarehouseRequestWarehouseType
 from databricks.sdk.service.sql import ExecuteStatementRequestOnWaitTimeout
 
 
+# helper function to drop external tables
+def drop_table(w, catalog, schema, table_name, warehouse):
+    print(f"Dropping table {catalog}.{schema}.{table_name}...")
+
+    try:
+        sqlstring = f"DROP TABLE IF EXISTS {catalog}.{schema}.{table_name}"
+        resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
+                                                       wait_timeout="0s",
+                                                       on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
+                                                       disposition=Disposition("EXTERNAL_LINKS"),
+                                                       statement=sqlstring)
+
+        while resp.status.state in {StatementState.PENDING, StatementState.RUNNING}:
+            resp = w.statement_execution.get_statement(resp.statement_id)
+            time.sleep(response_backoff)
+
+        if resp.status.state != StatementState.SUCCEEDED:
+            return {"status": 0,
+                    "catalog": catalog,
+                    "schema": schema,
+                    "table_name": table_name}
+
+        return {"status": 1,
+                "catalog": catalog,
+                "schema": schema,
+                "table_name": table_name}
+
+    except Exception:
+        return {"status": 0,
+                "catalog": catalog,
+                "schema": schema,
+                "table_name": table_name}
+
+
 # helper function to load tables from a specified location
 def load_table(w, catalog, schema, table_name, location, warehouse):
 
     print(f"Creating EXTERNAL table {catalog}.{schema}.{table_name}...")
 
     try:
-        sqlstring = f"CREATE OR REPLACE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
+        sqlstring = f"CREATE TABLE {catalog}.{schema}.{table_name} USING delta LOCATION '{location}'"
         resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
                                                        wait_timeout="0s",
                                                        on_wait_timeout=ExecuteStatementRequestOnWaitTimeout("CONTINUE"),
@@ -77,9 +111,9 @@ def load_table(w, catalog, schema, table_name, location, warehouse):
 
 
 # script inputs
-target_bucket = "path/to/storage/"
-secondary_host = "<secondary-workspace-url>"
-secondary_pat = "<secondary-workspace-pat>"
+landing_zone_url = "path/to/storage/"
+target_host = "<secondary-workspace-url>"
+target_pat = "<secondary-workspace-pat>"
 catalogs_to_copy = ["my-catalog1", "my-catalog2"]
 num_exec = 4
 warehouse_size = "Small"
@@ -98,7 +132,7 @@ loaded_table_status = []
 loaded_table_times = []
 
 # create the WorkspaceClient pointed at the target WS
-w_target = WorkspaceClient(host=secondary_host, token=secondary_pat)
+w_target = WorkspaceClient(host=target_host, token=target_pat)
 
 # create warehouse to run table creation statements
 wh_target = w_target.warehouses.create(name=f'sdk-{time.time_ns()}',
@@ -125,6 +159,21 @@ for cat in catalogs_to_copy:
     schemas = [row['table_schema'] for row in filtered_tables]
     table_names = [row['table_name'] for row in filtered_tables]
     table_locs = [row['storage_path'] for row in filtered_tables]
+
+    with ThreadPoolExecutor(max_workers=num_exec) as executor:
+        threads = executor.map(drop_table,
+                               repeat(w_target),
+                               repeat(cat),
+                               schemas,
+                               table_names,
+                               repeat(wh_target.id))
+
+        for thread in threads:
+            if thread["status"]:
+                print("Dropped table {}.{}.{}.".format(thread["catalog"], thread["schema"], thread["table_name"]))
+            else:
+                print(
+                    "Error dropping table {}.{}.{}.".format(thread["catalog"], thread["schema"], thread["table_name"]))
 
     # use ThreadPool to copy tables in parallel
     with ThreadPoolExecutor(max_workers=num_exec) as executor:
@@ -159,4 +208,4 @@ status_df = pd.DataFrame({"catalog": loaded_table_catalogs,
 (spark.createDataFrame(status_df)
  .write.mode("overwrite")
  .format("delta")
- .save(f"{target_bucket}/sync_status_{time.time_ns()}"))
+ .save(f"{landing_zone_url}/sync_status_{time.time_ns()}"))
