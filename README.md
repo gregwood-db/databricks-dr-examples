@@ -14,3 +14,4 @@ Code samples that show more comprehensive end-to-end functionality:
 - sync_catalogs_and_schemas.py: script to sync all catalogs and schemas from a primary metastore to a secondary metastore. Run locally or on either primary/secondary.
 - sync_tables.py: performs a deep clone of all managed external tables, and registers those tables in the secondary region.
 - sync_grs_ext.py: sync _metadata only_ for external tables that have already been replicated via cloud provider georeplication. No data is copied, and storage URLs on both workspaces will be the same.
+- sync_perms.py (*currently being developed*): sync all permissions related to UC from primary to secondary metastore.
