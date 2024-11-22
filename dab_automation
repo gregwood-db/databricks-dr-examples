@@ -1,0 +1,182 @@
+# this file is a pseudocode example of CI-CD automation with Terraform and DABs.
+
+stages:
+  # TF stages go first
+  - test
+  - unlock-workspace-state
+  - terraform-plan
+  - terraform-apply
+  #  Once TF stages complete, begin DABs stages
+  - bundle-static-analysis
+  - bundle-validate
+  - bundle-deploy
+
+.get-changed-bundles: &get-changed-bundles
+  - |
+    echo "Getting changed bundles between '$MERGE_SOURCE' and '$MERGE_TARGET'"
+    CHANGED_BUNDLES=$(
+      git diff-tree --name-only -r origin/$MERGE_SOURCE origin/$MERGE_TARGET \
+        | grep '^src/bundles/' | cut -d'/' -f1-3 | uniq || true
+    )
+    if [ -n "$CHANGED_BUNDLES" ]; then
+      echo "Changed Bundles: $CHANGED_BUNDLES"
+    else
+      echo "Changed Bundles: None"
+      echo "Setting CHANGED_BUNDLES to empty"
+      CHANGED_BUNDLES=""
+    fi
+    echo "Setting 'CHANGED_BUNDLES' as an environment variable"
+    export CHANGED_BUNDLES
+
+.install-databricks-cli: &install-databricks-cli
+  - apt-get update
+  - FILE=databricks_cli_${DB_CLI_VERSION}_linux_amd64.zip
+  - TARGET=/usr/local/bin
+  - mkdir -p "$TARGET"
+  - tmpdir="$(mktemp -d)"
+  - cd "$tmpdir"
+  - curl -L -s -O "https://github.com/databricks/cli/releases/download/v${DB_CLI_VERSION}/${FILE}"
+  - unzip -q "${FILE}"
+  - chmod +x ./databricks
+  - cp ./databricks "$TARGET"
+  - echo "Installed $($TARGET/databricks -v) at $TARGET/databricks."
+  - cd "$OLDPWD"
+  - rm -rf "$tmpdir" || true
+
+.authenticate-m2m-databricks-cli: &authenticate-m2m-databricks-cli
+  - echo "Installing aws and jq for authenticating M2M Databricks CLI"
+  - apt-get install awscli jq -y
+  - echo "Authenticating M2M Databricks CLI"
+  # Gather secrets from terraform secrets store
+  - my_prod_token=$(<function to get secret token>)
+  - my_prod2_token=$(<function to get secret token>)
+  - my_dev_token=$(<function to get secret token>)
+  # Write the secrets to ~/.databrickscfg as profiles
+  - echo "[prod-ws1]" > ~/.databrickscfg
+  - echo "host = https://my-prod1-workspace.cloud.databricks.com" >> ~/.databrickscfg
+  - echo "token = $my_prod1_token" >> ~/.databrickscfg
+  - echo "[prod-ws2]" >> ~/.databrickscfg
+  - echo "host = https://my-prod2-workspace.cloud.databricks.com" >> ~/.databrickscfg
+  - echo "token = $my_prod2_token" >> ~/.databrickscfg
+  - echo "[dev-ws]" >> ~/.databrickscfg
+  - echo "host = https://my-dev-workspace.cloud.databricks.com" >> ~/.databrickscfg
+  - echo "token = $my_dev_token" >> ~/.databrickscfg
+
+bundle-lint-test:
+  stage: bundle-static-analysis
+  image: python:3.10
+  extends: .dab-vars
+  interruptible: true
+  before_script:
+    - *get-changed-bundles
+  script:
+    - pip install --upgrade pip
+    - pip install pytest~=8.1 mypy~=1.9 mypy-gitlab-code-quality~=1.1.0
+    - echo "Running 'pytest' unit tests"
+    - |
+      for bundle in $CHANGED_BUNDLES; do
+        echo "Entering Bundle: $bundle"
+        cd "$bundle" || { echo "Error: Unable to change directory to $bundle"; exit 1; }
+
+        # Execute commands inside the bundle directory
+        echo "$bundle: Creating virtual environment"
+        python -m venv .ci_venv
+        source .ci_venv/bin/activate
+        echo "$bundle: Installing requirements"
+        pip install -r requirements.txt
+        pip install -e .
+        echo "$bundle: Running tests"
+        pytest --junitxml=pytest.xml --cov=$bundle --cov-report=xml  . || touch pytest.xml
+
+        # After executing commands, return to the original directory
+        echo "Exiting Bundle: $bundle"
+        cd "$OLDPWD" || { echo "Error: Unable to change directory to $OLDPWD"; exit 1; }
+      done
+    - echo "Running 'mypy' type checking"
+    - mypy --config-file .mypy.ini $CHANGED_BUNDLES --explicit-package-bases | mypy-gitlab-code-quality
+  artifacts:
+    reports:
+      junit: pytest.xml
+    paths:
+      - $CHANGED_BUNDLES
+    expire_in: 30 days
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - $BUNDLES_DIR/**/*
+
+databricks-bundle-validate:
+  stage: bundle-validate
+  image: python:3.10
+  interruptible: true
+  extends: .dab-vars
+  before_script:
+    - *install-databricks-cli
+    - *authenticate-m2m-databricks-cli
+    - *get-changed-bundles
+  tags: ["my_important_tag1", "my_important_tag2"]
+  script:
+    - echo "Running bundle validations"
+    - |
+      for bundle in $CHANGED_BUNDLES; do
+        echo "Entering Bundle: $bundle"
+        cd "$bundle" || { echo "Error: Unable to change directory to $bundle"; exit 1; }
+
+        # Execute commands inside the bundle directory
+        echo "$bundle: Validating bundle"
+        databricks bundle validate -t prod
+
+        # After executing commands, return to the original directory
+        echo "Exiting Bundle: $bundle"
+        cd "$OLDPWD" || { echo "Error: Unable to change directory to $OLDPWD"; exit 1; }
+      done
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - $BUNDLES_DIR/**/*
+
+databricks-bundle-deploy:
+  stage: bundle-deploy
+  image: python:3.10
+  extends: .dab-vars
+  before_script:
+    - *install-databricks-cli
+    - *authenticate-m2m-databricks-cli
+  tags: ["my_important_tag1", "my_important_tag2"]
+  script:
+    - echo "Getting changed bundles"
+    - |
+      CHANGED_BUNDLES=$(
+        git diff-tree --name-only -r HEAD HEAD~1 | grep '^src/bundles/' | cut -d'/' -f1-3 | uniq || true
+      )
+      if [ -n "$CHANGED_BUNDLES" ]; then
+        echo "Changed Bundles: $CHANGED_BUNDLES"
+      else
+        echo "Changed Bundles: None"
+        echo "Setting CHANGED_BUNDLES to empty"
+        CHANGED_BUNDLES=""
+      fi
+      echo "Setting 'CHANGED_BUNDLES' as an environment variable"
+      export CHANGED_BUNDLES
+    - echo "Deploying bundles"
+    - |
+      if [[ -n "$CHANGED_BUNDLES" ]]; then
+        for bundle in $CHANGED_BUNDLES; do
+          echo "Entering Bundle: $bundle"
+          cd "$bundle" || { echo "Error: Unable to change directory to $bundle"; exit 1; }
+
+          # Execute commands inside the bundle directory
+          echo "$bundle: Deploying bundle"
+          databricks bundle deploy -t prod
+
+          # After executing commands, return to the original directory
+          echo "Exiting Bundle: $bundle"
+          cd "$OLDPWD" || { echo "Error: Unable to change directory to $OLDPWD"; exit 1; }
+        done
+      else
+        echo "Skipping bundle deploy as CHANGED_BUNDLES is empty"
+      fi
+  rules:
+    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH
+      changes:
+        - $BUNDLES_DIR/**/*
