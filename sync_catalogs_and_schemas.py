@@ -40,7 +40,7 @@ source_catalog_names = [x.name for x in source_catalogs]
 target_catalog_names = [x.name for x in target_catalogs]
 catalog_diff = list(set(source_catalog_names) - set(target_catalog_names))
 catalogs_to_create = [x for x in source_catalogs if x.name in catalog_diff]
-catalog_df = pd.read_csv(catalog_mapping_file)
+catalog_df = pd.read_csv(catalog_mapping_file, keep_default_na=False)
 
 if not catalogs_to_create:
     print("All source catalogs exist in target metastore.")
@@ -82,7 +82,7 @@ for catalog in catalogs_to_create:
 
     print(f"Created catalog {catalog_name}.")
 
-schema_df = pd.read_csv(schema_mapping_file)
+schema_df = pd.read_csv(schema_mapping_file, keep_default_na=False)
 
 for catalog in source_catalogs:
     source_schemas = [x for x in w_source.schemas.list(catalog.name)]
@@ -99,16 +99,22 @@ for catalog in source_catalogs:
 
         try:
             storage_root = (schema_df['target_storage_root'].loc[
-                (catalog_df['source_schema'] == schema_name) &
-                (catalog_df['source_catalog'] == catalog.name)].iloc[0])
+                (schema_df['source_schema'] == schema_name) &
+                (schema_df['source_catalog'] == catalog.name)].iloc[0])
         except (KeyError, IndexError):
             print(f"Could not create catalog {catalog.name}. Please check mapping file.")
             continue
 
-        w_target.schemas.create(name=schema_name,
-                                comment=schema_comment,
-                                properties=schema_properties,
-                                catalog_name=catalog.name,
-                                storage_root=storage_root)
+        if storage_root:
+            w_target.schemas.create(name=schema_name,
+                                    comment=schema_comment,
+                                    properties=schema_properties,
+                                    catalog_name=catalog.name,
+                                    storage_root=storage_root)
+        else:
+            w_target.schemas.create(name=schema_name,
+                                    comment=schema_comment,
+                                    properties=schema_properties,
+                                    catalog_name=catalog.name)
 
         print(f"Created schema {catalog.name}.{schema_name}.")
