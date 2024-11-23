@@ -1,4 +1,4 @@
-# sync_tables.py
+# sync_grs_ext.py
 #
 # Baseline script to sync tables GRS-replicated tables from a primary metastore to a secondary metastore
 #
