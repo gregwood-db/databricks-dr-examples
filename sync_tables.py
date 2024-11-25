@@ -67,11 +67,11 @@ def copy_table(w, catalog, schema, table_name, table_type, bucket, warehouse):
                 "table_type": table_type,
                 "location": bucket}
 
-    except Exception:
+    except Exception as e:
         return {"catalog": catalog,
                 "schema": schema,
                 "table_name": table_name,
-                "table_type": "COPY_ERROR: UNKNOWN ERROR",
+                "table_type": f"COPY_ERROR: {e}",
                 "location": "N/A"}
 
 
@@ -143,13 +143,13 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                     "status": "SUCCESS",
                     "creation_time": time.time_ns()}
 
-        except Exception:
+        except Exception as e:
             return {"catalog": catalog,
                     "schema": schema,
                     "table_name": table_name,
                     "table_type": table_type,
                     "location": location,
-                    "status": "FAIL: UNKNOWN ERROR",
+                    "status": f"FAIL: {e}",
                     "creation_time": time.time_ns()}
 
     elif table_type == "EXTERNAL":
@@ -185,13 +185,13 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                     "status": "SUCCESS",
                     "creation_time": time.time_ns()}
 
-        except Exception:
+        except Exception as e:
             return {"catalog": catalog,
                     "schema": schema,
                     "table_name": table_name,
                     "table_type": table_type,
                     "location": location,
-                    "status": "FAIL: UNKNOWN FAILURE",
+                    "status": f"FAIL: {e}",
                     "creation_time": time.time_ns()}
 
     else:

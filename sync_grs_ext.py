@@ -1,6 +1,6 @@
 # sync_grs_ext.py
 #
-# Baseline script to sync tables GRS-replicated tables from a primary metastore to a secondary metastore
+# Baseline script to sync GRS-replicated tables from a primary metastore to a secondary metastore
 #
 # NOTE: This script must be run in the PRIMARY workspace. This simplifies and accelerates system table fetch and writes
 # spark writes to the target bucket.
