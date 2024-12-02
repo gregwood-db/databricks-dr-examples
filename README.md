@@ -16,4 +16,4 @@ Code samples that show more comprehensive end-to-end functionality:
 - sync_tables.py: performs a deep clone of all managed external tables, and registers those tables in the secondary region.
 - sync_grs_ext.py: sync _metadata only_ for external tables that have already been replicated via cloud provider georeplication. No data is copied, and storage URLs on both workspaces will be the same.
 - sync_ext_volumes.py: sync _metadata only_ for external volumes that have already been replicated via cloud provider georeplication.
-- sync_perms.py: sync all permissions related to UC from primary to secondary metastore.
+- sync_perms.py: sync all permissions related to UC tables, volumes, schemas and catalogs from primary to secondary metastore.
