@@ -7,6 +7,7 @@ Snippets that demonstrate basic functionality:
 - clone_to_secondary.py: performs `DEEP CLONE` on a set of catalogs in the primary to a storage location in the secondary region.
 - clone_to_secondary_par.py: parallelized version of clone_to_secondary.py.
 - create_tables_simple.py: simple script that must be run *in the secondary region* to register managed/external tables based on the output of clone_to_secondary.py.
+- sync_views.py: simple script to sync views; this will need to be updated per your environment.
 
 
 Code samples that show more comprehensive end-to-end functionality:
