@@ -1,6 +1,6 @@
 # sync_perms.py
 #
-# Baseline script to sync permissions of tables, schemas and catalogs between two workspaces.
+# Baseline script to sync permissions of tables, volumes, schemas and catalogs between two workspaces.
 #
 # NOTE: This script must be run in the PRIMARY workspace.
 #
@@ -98,13 +98,16 @@ w_source = WorkspaceClient(host=source_host, token=source_pat)
 w_target = WorkspaceClient(host=target_host, token=target_pat)
 
 # get all tables in the source ws
-system_info = sql("SELECT * FROM system.information_schema.tables")
+table_info = sql("SELECT * FROM system.information_schema.tables")
+volume_info = sql("SELECT * FROM system.information_schema.volumes")
 
 # iterate through catalogs
 for cat in catalogs_to_copy:
-    filtered_tables = system_info.filter(
-        (system_info.table_catalog == cat) &
-        (system_info.table_schema != "information_schema")).collect()
+    filtered_tables = table_info.filter(
+        (table_info.table_catalog == cat) &
+        (table_info.table_schema != "information_schema")).collect()
+
+    filtered_volumes = volume_info.filter(volume_info.volume_catalog == cat).collect()
 
     # sync the catalog grants first
     res = sync_grants(w_source, w_target, cat, catalog.SecurableType.CATALOG)
@@ -121,6 +124,9 @@ for cat in catalogs_to_copy:
     table_names = [f"{cat}.{schema}.{table}" for schema, table in
                    zip([row['table_schema'] for row in filtered_tables],
                        [row['table_name'] for row in filtered_tables])]
+    volume_names = [f"{cat}.{schema}.{table}" for schema, table in
+                    zip([row['volume_schema'] for row in filtered_volumes],
+                        [row['volume_name'] for row in filtered_volumes])]
 
     # update schema grants in parallel
     with ThreadPoolExecutor(max_workers=num_exec) as executor:
@@ -143,7 +149,7 @@ for cat in catalogs_to_copy:
         threads = executor.map(sync_grants,
                                repeat(w_source),
                                repeat(cat),
-                               schemas,
+                               table_names,
                                repeat(catalog.SecurableType.TABLE))
 
         for thread in threads:
@@ -153,3 +159,19 @@ for cat in catalogs_to_copy:
                 print(f"ERROR: table {thread} does not exist in target workspace. Sync metadata and re-run.")
             else:
                 print(f"No changes to sync for table {thread}.")
+
+    # update volume grants in parallel
+    with ThreadPoolExecutor(max_workers=num_exec) as executor:
+        threads = executor.map(sync_grants,
+                               repeat(w_source),
+                               repeat(cat),
+                               volume_names,
+                               repeat(catalog.SecurableType.VOLUME))
+
+        for thread in threads:
+            if thread["status"] == "SUCCESS":
+                print(f"Synced grants for volume {thread}.")
+            elif res["status"] == "NotFound":
+                print(f"ERROR: volume {thread} does not exist in target workspace. Sync volumes and re-run.")
+            else:
+                print(f"No changes to sync for volume {thread}.")
