@@ -132,7 +132,7 @@ for cat in catalogs_to_copy:
     with ThreadPoolExecutor(max_workers=num_exec) as executor:
         threads = executor.map(sync_grants,
                                repeat(w_source),
-                               repeat(cat),
+                               repeat(w_target),
                                schemas,
                                repeat(catalog.SecurableType.SCHEMA))
 
@@ -148,7 +148,7 @@ for cat in catalogs_to_copy:
     with ThreadPoolExecutor(max_workers=num_exec) as executor:
         threads = executor.map(sync_grants,
                                repeat(w_source),
-                               repeat(cat),
+                               repeat(w_target),
                                table_names,
                                repeat(catalog.SecurableType.TABLE))
 
@@ -164,7 +164,7 @@ for cat in catalogs_to_copy:
     with ThreadPoolExecutor(max_workers=num_exec) as executor:
         threads = executor.map(sync_grants,
                                repeat(w_source),
-                               repeat(cat),
+                               repeat(w_target),
                                volume_names,
                                repeat(catalog.SecurableType.VOLUME))
 
