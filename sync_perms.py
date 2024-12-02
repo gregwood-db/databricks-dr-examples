@@ -137,12 +137,13 @@ for cat in catalogs_to_copy:
                                repeat(catalog.SecurableType.SCHEMA))
 
         for thread in threads:
+            name = thread["name"]
             if thread["status"] == "SUCCESS":
-                print(f"Synced grants for schema {thread}.")
-            elif res["status"] == "NotFound":
-                print(f"ERROR: schema {thread} does not exist in target workspace. Sync metadata and re-run.")
+                print(f"Synced grants for schema {name}.")
+            elif thread["status"] == "NotFound":
+                print(f"ERROR: schema {name} does not exist in target workspace. Sync metadata and re-run.")
             else:
-                print(f"No changes to sync for schema {thread}.")
+                print(f"No changes to sync for schema {name}.")
 
     # update table grants in parallel
     with ThreadPoolExecutor(max_workers=num_exec) as executor:
@@ -153,12 +154,13 @@ for cat in catalogs_to_copy:
                                repeat(catalog.SecurableType.TABLE))
 
         for thread in threads:
+            name = thread["name"]
             if thread["status"] == "SUCCESS":
-                print(f"Synced grants for table {thread}.")
-            elif res["status"] == "NotFound":
-                print(f"ERROR: table {thread} does not exist in target workspace. Sync metadata and re-run.")
+                print(f"Synced grants for table {name}.")
+            elif thread["status"] == "NotFound":
+                print(f"ERROR: table {name} does not exist in target workspace. Sync metadata and re-run.")
             else:
-                print(f"No changes to sync for table {thread}.")
+                print(f"No changes to sync for table {name}.")
 
     # update volume grants in parallel
     with ThreadPoolExecutor(max_workers=num_exec) as executor:
@@ -169,9 +171,10 @@ for cat in catalogs_to_copy:
                                repeat(catalog.SecurableType.VOLUME))
 
         for thread in threads:
+            name = thread["name"]
             if thread["status"] == "SUCCESS":
-                print(f"Synced grants for volume {thread}.")
-            elif res["status"] == "NotFound":
-                print(f"ERROR: volume {thread} does not exist in target workspace. Sync volumes and re-run.")
+                print(f"Synced grants for volume {name}.")
+            elif thread["status"] == "NotFound":
+                print(f"ERROR: volume {name} does not exist in target workspace. Sync volumes and re-run.")
             else:
-                print(f"No changes to sync for volume {thread}.")
+                print(f"No changes to sync for volume {name}.")
