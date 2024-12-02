@@ -45,8 +45,8 @@ def create_volume(w, catalog_name, schema_name, volume_name, location, owner):
         return {"volume": f"{catalog_name}.{schema_name}.{volume_name}", "status": "already_exists"}
 
     # for any other exception, return the error
-    except Exception:
-        return {"volume": f"{catalog_name}.{schema_name}.{volume_name}", "status": f"{sys.last_value}"}
+    except Exception as e:
+        return {"volume": f"{catalog_name}.{schema_name}.{volume_name}", "status": f"ERROR: {e}"}
 
 
 # script inputs
