@@ -101,12 +101,12 @@ def load_table(w, catalog, schema, table_name, location, warehouse):
                 "status": "SUCCESS",
                 "creation_time": time.time_ns()}
 
-    except Exception:
+    except Exception as e:
         return {"catalog": catalog,
                 "schema": schema,
                 "table_name": table_name,
                 "location": location,
-                "status": "FAIL: UNKNOWN FAILURE",
+                "status": "FAIL: {e}",
                 "creation_time": time.time_ns()}
 
 
