@@ -17,3 +17,4 @@ Code samples that show more comprehensive end-to-end functionality:
 - sync_grs_ext.py: sync _metadata only_ for external tables that have already been replicated via cloud provider georeplication. No data is copied, and storage URLs on both workspaces will be the same.
 - sync_ext_volumes.py: sync _metadata only_ for external volumes that have already been replicated via cloud provider georeplication.
 - sync_perms.py: sync all permissions related to UC tables, volumes, schemas and catalogs from primary to secondary metastore.
+- sync_shared_tables.py: sync tables using Delta Sharing. All tables will be imported to the secondary region as managed tables.
