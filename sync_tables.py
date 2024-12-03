@@ -9,7 +9,7 @@
 # tables in the secondary metastore, within the same catalog and schema. The catalogs and schemas should already be
 # created in the secondary metastore by using, i.e., sync_catalogs_and_schemas.py.
 #
-# Please note that this script uses Severless compute by default to avoid waiting for classic warehouse startup times.
+# Please note that this script uses Serverless compute by default to avoid waiting for classic warehouse startup times.
 #
 # Params that must be specified below:
 #   -landing_zone_url: the bucket, storage account, etc. where data will be written. This _must_ be in the secondary

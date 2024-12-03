@@ -9,7 +9,7 @@
 # assumes that all storage locations are identical between the two regions, i.e., georeplicated storage has been used.
 # Storage URLs are not updated; they are just directly brought over to the secondary metastore.
 #
-# Please note that this script uses Severless compute by default to avoid waiting for classic warehouse startup times.
+# Please note that this script uses Serverless compute by default to avoid waiting for classic warehouse startup times.
 #
 # Params that must be specified below:
 #   -landing_zone_url: the bucket, storage account, etc. where the status table will be written
