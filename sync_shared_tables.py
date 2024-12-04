@@ -82,14 +82,15 @@ source_pat = "<primary-workspace-pat>"
 target_host = "<secondary-workspace-url>"
 target_pat = "<secondary-workspace-pat>"
 catalogs_to_copy = ["my-catalog1", "my-catalog2"]
-num_exec = 4
 metastore_id = "<secondary-metastore-id>"
+num_exec = 4
 warehouse_size = "Large"
 landing_zone_url = "/path/to/storage"
 
 # other parameters
 wh_type = CreateWarehouseRequestWarehouseType("PRO")  # required for serverless warehouse
 response_backoff = 0.5  # backoff for checking query state
+write_results = False  # set to true to write status df to disk
 
 # create the WorkspaceClients for source and target workspaces
 w_source = WorkspaceClient(host=source_host, token=source_pat)
@@ -115,7 +116,7 @@ try:
                                            data_recipient_global_metastore_id=metastore_id)
 except BadRequest:
     print(f"Recipient with id {metastore_id} already exists. Skipping creation...")
-    recipient = None
+    recipient = [r for r in w_source.recipients.list() if r.data_recipient_global_metastore_id == metastore_id][0]
 
 # get all tables in the primary metastore
 system_info = spark.sql("SELECT * FROM system.information_schema.tables")
@@ -153,13 +154,17 @@ for cat in catalogs_to_copy:
     print(f"Creating share for catalog {cat}...")
     try:
         share = w_source.shares.create(name=f"{cat}_share")
-        _ = w_source.shares.update_permissions(share.name,
-                                               changes=[PermissionsChange(add=[Privilege.SELECT],
-                                                                          principal=recipient.name)])
         share_name = share.name
     except BadRequest:
         print(f"Share {cat}_share already exists. Skipping creation...")
         share_name = f"{cat}_share"
+
+    try:
+        _ = w_source.shares.update_permissions(share_name,
+                                               changes=[PermissionsChange(add=[Privilege.SELECT],
+                                                                          principal=recipient.name)])
+    except BadRequest:
+        print(f"Could not update permissions for share {share_name}.")
 
     # build update object with all schemas in the current catalog
     updates = [
@@ -208,8 +213,9 @@ status_df = pd.DataFrame({"catalog": cloned_table_catalogs,
                           "sync_time": cloned_table_times})
 
 # table will get a specific timestamp-based location per run
-ts2 = time.time_ns()
-(spark.createDataFrame(status_df)
- .write.mode("overwrite")
- .format("delta")
- .save(f"{landing_zone_url}/sync_status_{ts2}"))
+if write_results:
+    ts2 = time.time_ns()
+    (spark.createDataFrame(status_df)
+     .write.mode("overwrite")
+     .format("delta")
+     .save(f"{landing_zone_url}/sync_status_{ts2}"))

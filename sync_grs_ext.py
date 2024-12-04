@@ -145,7 +145,7 @@ wh_target = w_target.warehouses.create(name=f'sdk-{time.time_ns()}',
                                            custom_tags=[
                                                dbsql.EndpointTagPair(key="Owner", value="dr-sync-tool")])).result()
 
-system_info = sql("SELECT * FROM system.information_schema.tables")
+system_info = spark.sql("SELECT * FROM system.information_schema.tables")
 
 # loop through all catalogs to copy, then copy all tables excluding system tables.
 # we also skip views; these need to be created separately since they cannot be cloned.

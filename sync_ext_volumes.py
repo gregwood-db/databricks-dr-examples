@@ -16,7 +16,6 @@
 #   -num_exec: the number of threads to spawn in the ThreadPoolExecutor.
 
 
-import sys
 from itertools import repeat
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import catalog
@@ -59,7 +58,7 @@ num_exec = 4
 w_target = WorkspaceClient(host=target_host, token=target_pat)
 
 # pull system tables from source ws
-system_info = sql("SELECT * FROM system.information_schema.volumes")
+system_info = spark.sql("SELECT * FROM system.information_schema.volumes")
 
 # loop through all catalogs to copy, then copy all volumes in these catalogs.
 #

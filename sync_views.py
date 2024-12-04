@@ -40,7 +40,7 @@ from databricks.sdk.service.sql import ExecuteStatementRequestOnWaitTimeout
 def create_view(w, catalog, schema, view_name, warehouse):
 
     try:
-        view_stmt = sql(f"show create table {catalog}.{schema}.{view_name}").collect()[0]["createtab_stmt"]
+        view_stmt = spark.sql(f"show create table {catalog}.{schema}.{view_name}").collect()[0]["createtab_stmt"]
 
         resp = w.statement_execution.execute_statement(warehouse_id=warehouse,
                                                        wait_timeout="0s",
@@ -89,7 +89,7 @@ wh_type = CreateWarehouseRequestWarehouseType("PRO")  # required for serverless 
 response_backoff = 0.5  # backoff for checking query state
 
 # pull all views from source ws
-all_views = sql("SELECT * FROM system.information_schema.views")
+all_views = spark.sql("SELECT * FROM system.information_schema.views")
 
 # create the WorkspaceClient pointed at the target WS
 w_target = WorkspaceClient(host=target_host, token=target_pat)

@@ -98,8 +98,8 @@ w_source = WorkspaceClient(host=source_host, token=source_pat)
 w_target = WorkspaceClient(host=target_host, token=target_pat)
 
 # get all tables in the source ws
-table_info = sql("SELECT * FROM system.information_schema.tables")
-volume_info = sql("SELECT * FROM system.information_schema.volumes")
+table_info = spark.sql("SELECT * FROM system.information_schema.tables")
+volume_info = spark.sql("SELECT * FROM system.information_schema.volumes")
 
 # iterate through catalogs
 for cat in catalogs_to_copy:
