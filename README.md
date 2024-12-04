@@ -3,6 +3,19 @@ A collection of minimal example scripts for setting up Disaster Recovery for Dat
 
 This code is provided as-is and is meant to serve as a set of baseline examples. You may need to alter these scripts to work in your environment.
 
+### Notes on cross-workspace connectivity:
+These scripts generally assume that the primary workspace can directly access the secondary workspace via SDK; this may not always be true in your environment. You have two options if connectivity issues are preventing scripts from running:
+- Alter the workspace networking to allow connectivity; this may involve adjusting firewalls, adding peering, etc.
+- Run the scripts remotely using Databricks Connect
+
+In the latter option, the following adjustments need to be made:
+- Set up [Databricks Connect](https://docs.databricks.com/en/dev-tools/databricks-connect/python/index.html) in your environment
+- In all scripts, add an import statement for Databricks Connect, i.e., `from databricks.connect import DatabricksSession`
+- In all scripts, instantiate a Spark Session, i.e., `spark = DatabricksSession.builder.profile("<profile-name>").getOrCreate()`
+
+These changes will allow the code to run remotely on a local machine or cloud VM.
+
+## Repo Contents
 Snippets that demonstrate basic functionality (located in /examples/):
 - clone_to_secondary.py: performs `DEEP CLONE` on a set of catalogs in the primary to a storage location in the secondary region.
 - clone_to_secondary_par.py: parallelized version of clone_to_secondary.py.
