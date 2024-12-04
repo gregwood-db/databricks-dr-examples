@@ -3,8 +3,8 @@ A collection of minimal example scripts for setting up Disaster Recovery for Dat
 
 This code is provided as-is and is meant to serve as a set of baseline examples. You may need to alter these scripts to work in your environment.
 
-### Notes on cross-workspace connectivity:
-These scripts generally assume that the primary workspace can directly access the secondary workspace via SDK; this may not always be true in your environment. You have two options if connectivity issues are preventing scripts from running:
+### Notes on cross-workspace connectivity
+These scripts generally assume that they will be run on a notebook in the primary workspace, and that the workspace can directly access the secondary workspace via SDK; this may not always be true in your environment. You have two options if connectivity issues are preventing scripts from running:
 - Alter the workspace networking to allow connectivity; this may involve adjusting firewalls, adding peering, etc.
 - Run the scripts remotely using Databricks Connect
 
