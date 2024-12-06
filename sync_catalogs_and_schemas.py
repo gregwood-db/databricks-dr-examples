@@ -25,14 +25,15 @@ source_host = "<primary-ws-hostname>"
 source_pat = "<primary-ws-pat>"
 target_host = "<secondary-ws-hostname>"
 target_pat = "<primary-ws-pat>"
+catalogs_to_copy = ["my-catalog1", "my-catalog2"]
 
 # create WorkspaceClient objects
 w_source = WorkspaceClient(host=source_host, token=source_pat)
 w_target = WorkspaceClient(host=target_host, token=target_pat)
 
 # get source and target catalogs
-source_catalogs = [x for x in w_source.catalogs.list()]
-target_catalogs = [x for x in w_target.catalogs.list()]
+source_catalogs = [x for x in w_source.catalogs.list() if x.name in catalogs_to_copy]
+target_catalogs = [x for x in w_target.catalogs.list() if x.name in catalogs_to_copy]
 
 # compare source and target catalogs
 # we can only do this by name since the URL and IDs will change between workspaces
