@@ -32,9 +32,9 @@ Code samples that show more comprehensive end-to-end functionality:
 - sync_perms.py: sync all permissions related to UC tables, volumes, schemas and catalogs from primary to secondary metastore.
 - sync_shared_tables.py: sync tables using Delta Sharing. All tables will be imported to the secondary region as managed tables.
 
-##How to use this Repository:
+## How to use this Repository:
 
-####Prerequisites
+### Prerequisites
 Before running the script, make sure you have the following:
 
 - A Databricks workspace with Admin privileges to access and manage catalogs and schemas.
@@ -46,7 +46,6 @@ Before running the script, make sure you have the following:
   - Requests library installed for making API calls to Databricks/
 - Python 3.6+ and pip installed on your local machine.
 
-####Usage
 Clone this repository to your local machine:
 ```
 git clone https://github.com/gregwood-db/databricks-dr-examples.git
