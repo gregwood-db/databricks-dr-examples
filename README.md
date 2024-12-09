@@ -32,7 +32,7 @@ Code samples that show more comprehensive end-to-end functionality:
 - sync_perms.py: sync all permissions related to UC tables, volumes, schemas and catalogs from primary to secondary metastore.
 - sync_shared_tables.py: sync tables using Delta Sharing. All tables will be imported to the secondary region as managed tables.
 
-## How to use this Repository:
+## How to use this Repository
 
 ### Prerequisites
 Before running the script, make sure you have the following:
