@@ -63,7 +63,7 @@ Set the following variable/parameter values in `common.py`; these will be used t
   - `target_host`: Target/Secondary Workspace URL, including leading `https://`
   - `source_pat`: Personal Access Tokens (PAT) for Source/Primary Workspace
   - `target_pat`: Personal Access Tokens (PAT) for Target/Secondary Workspace URL
-  - `catalogs_to_copy` = A list of strings, containing names of catalogs to replicate
+  - `catalogs_to_copy`: A list of strings, containing names of catalogs to replicate
   - `metastore_id`: The global unique metastore ID of the secondary/target metastore
   - `landing_zone_url`: ADLS/S3/GCS location used to land intermediate data in the secondary region
   - `num_exec`: Number of parallel threads to execute (when parallelism is used)
