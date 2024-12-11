@@ -37,6 +37,11 @@ from databricks.sdk.service.sql import Disposition
 from databricks.sdk.service.sql import StatementState
 from databricks.sdk.service.sql import CreateWarehouseRequestWarehouseType
 from databricks.sdk.service.sql import ExecuteStatementRequestOnWaitTimeout
+from common import (target_pat, target_host,
+                    source_pat, source_host,
+                    catalogs_to_copy, num_exec,
+                    landing_zone_url, warehouse_size,
+                    response_backoff, manifest_name)
 
 
 # helper function to copy tables
@@ -205,20 +210,8 @@ def load_table(w, catalog, schema, table_name, table_type, location, warehouse):
                 "creation_time": "N/A"}
 
 
-# script inputs
-landing_zone_url = "<my_bucket_url>"
-source_host = "<primary-workspace-url>"
-source_pat = "<primary-workspace-pat>"
-target_host = "<secondary-workspace-url>"
-target_pat = "<secondary-workspace-pat>"
-catalogs_to_copy = ["my-catalog1", "my-catalog2"]
-manifest_name = "manifest"
-num_exec = 4
-warehouse_size = "Large"
-
 # other parameters
 wh_type = CreateWarehouseRequestWarehouseType("PRO")  # required for serverless warehouse
-response_backoff = 0.5  # backoff for checking query state
 
 # initialize lists
 copied_table_names = []

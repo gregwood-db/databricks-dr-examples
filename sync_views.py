@@ -34,6 +34,10 @@ from databricks.sdk.service.sql import Disposition
 from databricks.sdk.service.sql import StatementState
 from databricks.sdk.service.sql import CreateWarehouseRequestWarehouseType
 from databricks.sdk.service.sql import ExecuteStatementRequestOnWaitTimeout
+from common import (target_pat, target_host,
+                    catalogs_to_copy, num_exec,
+                    landing_zone_url, warehouse_size,
+                    response_backoff)
 
 
 # helper function to create a view
@@ -73,20 +77,8 @@ def create_view(w, catalog, schema, view_name, warehouse):
                 "creation_time": time.time_ns()}
 
 
-# script inputs
-landing_zone_url = "<my_bucket_url>"
-source_host = "<primary-workspace-url>"
-source_pat = "<primary-workspace-pat>"
-target_host = "<secondary-workspace-url>"
-target_pat = "<secondary-workspace-pat>"
-catalogs_to_copy = ["my-catalog1", "my-catalog2"]
-manifest_name = "manifest"
-num_exec = 4
-warehouse_size = "Large"
-
 # other parameters
 wh_type = CreateWarehouseRequestWarehouseType("PRO")  # required for serverless warehouse
-response_backoff = 0.5  # backoff for checking query state
 
 # pull all views from source ws
 all_views = spark.sql("SELECT * FROM system.information_schema.views")

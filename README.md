@@ -52,17 +52,29 @@ git clone https://github.com/gregwood-db/databricks-dr-examples.git
 cd databricks-dr-examples
 ```
 
+### Setting up variables and parameters
+Set the following variable/parameter values in `common.py`; these will be used throughout the other scripts.
+  - `cloud_type`: Cloud provider where workspaces exist (azure, aws, or gcp)
+  - `cred_mapping_file`: The mapping file for credentials, i.e., `data/azure_cred_mapping.csv`
+  - `loc_mapping_file`: The location mapping file, i.e. `data/ext_location_mapping.csv`
+  - `catalog_mapping_file`: The catalog mapping file, i.e. `data/catalog_mapping.csv`
+  - `schema_mapping_file`: The schema mapping file, i.e. `data/schema_mapping.csv`
+  - `source_host`: Source/Primary Workspace URL, including leading `https://`
+  - `target_host`: Target/Secondary Workspace URL, including leading `https://`
+  - `source_pat`: Personal Access Tokens (PAT) for Source/Primary Workspace
+  - `target_pat`: Personal Access Tokens (PAT) for Target/Secondary Workspace URL
+  - `catalogs_to_copy` = A list of strings, containing names of catalogs to replicate
+  - `metastore_id`: The global unique metastore ID of the secondary/target metastore
+  - `landing_zone_url`: ADLS/S3/GCS location used to land intermediate data in the secondary region
+  - `num_exec`: Number of parallel threads to execute (when parallelism is used)
+  - `warehouse_size`: The size of the serverless SQL warehouse used in the secondary workspace
+  - `response_backoff`: The polling backoff for checking query state when creating tables/views
+  - `manifest_name`: the name of the table manifest Delta file, if using sync_tables.py
+
+
 ### Syncing External Locations and Credentials
 
-1. You will need to modify the script ```sync_creds_and_locs.py``` to configure your source and target Databricks workspaces.
-    - Update the following values inside the script:
-      - cloud_type: Specify your cloud provider (azure, aws, or gcp)
-      - cred_mapping_file: Modify the data/azure_cred_mapping.csv accordingly
-      - loc_mapping_file: Modify the data/ext_location_mapping.csv accordingly
-      - source_host: Source/Primary Workspace URL
-      - target_host: Target/Secondary Workspace URL
-      - source_pat: Personal Access Tokens (PAT) for Source/Primary Workspace
-      - target_pat: Personal Access Tokens (PAT) for Target/Secondary Workspace URL
+1. Make sure `common.py` is updated with all relevant parameters
 
 2 Once you have updated the configuration, you can run the script with the following command:
 
@@ -72,15 +84,7 @@ python sync_creds_and_locs.py
 
 ### Syncing Catalogs and Schemas
 
-1. You will need to modify the script ```sync_catalogs_and_schemas.py``` to configure your source and target Databricks workspaces.
-    - Update the following values inside the script:
-      - catalog_mapping_file: Modify the data/catalog_mapping.csv accordingly
-      - schema_mapping_file: Modify the data/schema_mapping.csv accordingly
-      - source_host: Source/Primary Workspace URL
-      - target_host: Target/Secondary Workspace URL
-      - source_pat: Personal Access Token (PAT) for Source/Primary Workspace
-      - target_pat: Personal Access Token (PAT) for Target/Secondary Workspace URL
-      - catalogs_to_copy = Define the list of catalogs you want to copy
+1. Make sure `common.py` is updated with all relevant parameters
 
 2. Once you have updated the configuration, you can run the script with the following command:
 
@@ -94,14 +98,7 @@ Below are two options for syncing tables. Option 1 leverages Delta sharing to cl
 
 #### Option 1: Syncing Managed Tables via Delta Sharing
 
-1. You will need to modify the script ```sync_shared_tables.py``` to configure your source and target Databricks workspaces.
-  - Update the following values inside the script:
-    - source_host: Source/Primary Workspace URL
-    - target_host: Target/Secondary Workspace URL
-    - source_pat: Personal Access Tokens (PAT) for Source/Primary Workspace
-    - target_pat: Personal Access Tokens (PAT) for Target/Secondary Workspace URL
-    - catalogs_to_copy = Define the list of catalogs you want to copy
-    - metastore_id: The Target/Secondary Region's Metastore ID
+1. Make sure `common.py` is updated with all relevant parameters
 
 2. Once you have updated the configuration, you can run the script with the following command:
 
@@ -111,14 +108,7 @@ python sync_shared_tables.py
 
 #### Option 2: Syncing Managed Tables with an Intermediary Storage Account
 
-1. You will need to modify the script ```sync_shared_tables.py``` to configure your source and target Databricks workspaces.
-  - Update the following values inside the script:
-    - source_host: Source/Primary Workspace URL
-    - target_host: Target/Secondary Workspace URL
-    - source_pat: Personal Access Tokens (PAT) for Source/Primary Workspace
-    - target_pat: Personal Access Tokens (PAT) for Target/Secondary Workspace URL
-    - catalogs_to_copy: Define the list of catalogs you want to copy
-    - landing_zone_url: ADLS/S3/GCS Intermediary Bucket URL
+1. Make sure `common.py` is updated with all relevant parameters
 
 2. Once you have updated the configuration, you can run the script with the following command:
 
@@ -128,12 +118,7 @@ python sync_tables.py
 
 #### Option 3: Syncing External Tables
 
-1. You will need to modify the script ```sync_shared_tables.py``` to configure your source and target Databricks workspaces.
-  - Update the following values inside the script:
-    - target_host: Target/Secondary Workspace URL
-    - target_pat: Personal Access Token (PAT) for Target/Secondary Workspace URL
-    - catalogs_to_copy: Define the list of catalogs you want to copy
-    - landing_zone_url: ADLS/S3/GCS Intermediary Bucket URL
+1. Make sure `common.py` is updated with all relevant parameters
 
 2. Once you have updated the configuration, you can run the script with the following command:
 
@@ -143,12 +128,7 @@ python sync_grs_ext.py
 
 ### Syncing External Volumes
 
-1. You will need to modify the script ```sync_ext_volumes.py``` to configure your source and target Databricks workspaces.
-  - Update the following values inside the script:
-    - target_host: Target/Secondary Workspace URL
-    - target_pat: Personal Access Token (PAT) for Target/Secondary Workspace URL
-    - catalogs_to_copy: Define the list of catalogs you want to copy
-    - landing_zone_url: ADLS/S3/GCS Intermediary Bucket URL
+1. Make sure `common.py` is updated with all relevant parameters
 
 2. Once you have updated the configuration, you can run the script with the following command:
 
@@ -158,14 +138,7 @@ python sync_ext_volumes.py
 
 ### Syncing Views
 
-1. You will need to modify the script ```sync_views.py``` to configure your source and target Databricks workspaces.
-  - Update the following values inside the script:
-    - source_host: Source/Primary Workspace URL
-    - source_pat: Personal Access Tokens (PATs) for Source/Primary Workspace
-    - target_host: Target/Secondary Workspace URL
-    - target_pat: Personal Access Token (PAT) for Target/Secondary Workspace URL
-    - catalogs_to_copy: Define the list of catalogs you want to copy
-    - landing_zone_url: ADLS/S3/GCS Intermediary Bucket URL
+1. Make sure `common.py` is updated with all relevant parameters
 
 2. Once you have updated the configuration, you can run the script with the following command:
 

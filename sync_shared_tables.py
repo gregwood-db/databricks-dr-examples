@@ -34,6 +34,11 @@ from databricks.sdk.service.catalog import Privilege, PermissionsChange
 from databricks.sdk.service.sharing import (AuthenticationType, SharedDataObjectUpdate,
                                             SharedDataObjectUpdateAction, SharedDataObject,
                                             SharedDataObjectDataObjectType, SharedDataObjectStatus)
+from common import (target_pat, target_host,
+                    source_pat, source_host,
+                    catalogs_to_copy, num_exec,
+                    landing_zone_url, warehouse_size,
+                    response_backoff, metastore_id)
 
 
 # helper function to clone a table from one catalog to another
@@ -76,20 +81,8 @@ def clone_table(w, source_catalog, target_catalog, schema, table_name, warehouse
                 "creation_time": time.time_ns()}
 
 
-# script inputs
-source_host = "<primary-workspace-url>"
-source_pat = "<primary-workspace-pat>"
-target_host = "<secondary-workspace-url>"
-target_pat = "<secondary-workspace-pat>"
-catalogs_to_copy = ["my-catalog1", "my-catalog2"]
-metastore_id = "<secondary-metastore-id>"
-num_exec = 4
-warehouse_size = "Large"
-landing_zone_url = "/path/to/storage"
-
 # other parameters
 wh_type = CreateWarehouseRequestWarehouseType("PRO")  # required for serverless warehouse
-response_backoff = 0.5  # backoff for checking query state
 write_results = False  # set to true to write status df to disk
 
 # create the WorkspaceClients for source and target workspaces

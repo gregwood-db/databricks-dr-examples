@@ -17,15 +17,11 @@
 
 from databricks.sdk import WorkspaceClient
 import pandas as pd
+from common import (target_pat, target_host,
+                    source_pat, source_host,
+                    catalogs_to_copy, catalog_mapping_file,
+                    schema_mapping_file)
 
-# inputs
-catalog_mapping_file = "data/catalog_mapping.csv"
-schema_mapping_file = "data/schema_mapping.csv"
-source_host = "<primary-ws-hostname>"
-source_pat = "<primary-ws-pat>"
-target_host = "<secondary-ws-hostname>"
-target_pat = "<primary-ws-pat>"
-catalogs_to_copy = ["my-catalog1", "my-catalog2"]
 
 # create WorkspaceClient objects
 w_source = WorkspaceClient(host=source_host, token=source_pat)

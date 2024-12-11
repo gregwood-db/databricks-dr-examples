@@ -21,6 +21,9 @@ from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import catalog
 from concurrent.futures import ThreadPoolExecutor
 from databricks.sdk.errors.platform import ResourceAlreadyExists
+from common import (target_pat, target_host,
+                    source_pat, source_host,
+                    catalogs_to_copy, num_exec)
 
 
 # helper function to create volumes and set appropriate owner
@@ -47,12 +50,6 @@ def create_volume(w, catalog_name, schema_name, volume_name, location, owner):
     except Exception as e:
         return {"volume": f"{catalog_name}.{schema_name}.{volume_name}", "status": f"ERROR: {e}"}
 
-
-# script inputs
-target_host = "<secondary-workspace-url>"
-target_pat = "<secondary-workspace-pat>"
-catalogs_to_copy = ["my-catalog1", "my-catalog2"]
-num_exec = 4
 
 # create the WorkspaceClient pointed at the target WS
 w_target = WorkspaceClient(host=target_host, token=target_pat)

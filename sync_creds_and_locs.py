@@ -26,15 +26,10 @@
 from databricks.sdk import WorkspaceClient
 from databricks.sdk.service import catalog
 import pandas as pd
-
-# inputs
-cloud_type = "azure"
-cred_mapping_file = "data/azure_cred_mapping.csv"
-loc_mapping_file = "data/ext_location_mapping.csv"
-source_host = "<primary_workspace_hostname>"
-source_pat = "<primary_workspace_PAT>"
-target_host = "<secondary_workspace_hostname>"
-target_pat = "<secondary_workspace_PAT>"
+from common import (target_pat, target_host,
+                    source_pat, source_host,
+                    cred_mapping_file, loc_mapping_file,
+                    cloud_type)
 
 # create WorkspaceClient objects
 w_source = WorkspaceClient(host=source_host, token=source_pat)

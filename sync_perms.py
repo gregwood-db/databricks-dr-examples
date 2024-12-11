@@ -22,6 +22,9 @@ from databricks.sdk.service import catalog
 from databricks.sdk import WorkspaceClient
 from concurrent.futures import ThreadPoolExecutor
 from databricks.sdk.errors.platform import NotFound
+from common import (target_pat, target_host,
+                    source_pat, source_host,
+                    catalogs_to_copy, num_exec)
 
 
 # helper function to update object grants between source and target WS
@@ -84,14 +87,6 @@ def sync_grants(w_src, w_tgt, obj_name, obj_type):
     else:
         return {"name": obj_name, "status": None}
 
-
-# script inputs
-source_host = "<primary-workspace-url>"
-source_pat = "<primary-workspace-pat>"
-target_host = "<secondary-workspace-url>"
-target_pat = "<secondary-workspace-pat>"
-catalogs_to_copy = ["my-catalog1", "my-catalog2"]
-num_exec = 4
 
 # create the WorkspaceClients for source and target workspaces
 w_source = WorkspaceClient(host=source_host, token=source_pat)
