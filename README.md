@@ -76,7 +76,20 @@ Set the following variable/parameter values in `common.py`; these will be used t
 
 1. Make sure `common.py` is updated with all relevant parameters
 
-2 Once you have updated the configuration, you can run the script with the following command:
+2. Update the credential and external location mapping files:
+   - <cloud>_cred_mapping.csv: 
+     - `source_cred_name` should contain the storage credential name in the source metastore
+     - for AWS, `target_iam_role` should contain the ARN for the iam role to be used in the target metastore
+     - for Azure, only ONE of the following should be used:
+       - `target_mgd_id_connector`: used for standard access connectors (i.e., azure managed identities)
+       - `target_mgd_id_identity`: used for user-assigned managed identities
+       - `target_sp_directory`, `target_sp_appid`, and `target_sp_secret`: if a service principal is used for access (uncommon)
+   - ext_location_mapping.csv:
+     - `source_loc_name` should contain the external location name in the source metastore
+     - `target_url` should contain the storage URL to be used for the location in the secondary metastore
+     - `target_access_pt` should contain the S3 access point to be used (optional, only for AWS)
+
+3. Once you have updated the configuration, you can run the script with the following command:
 
 ```
 python sync_creds_and_locs.py
@@ -86,7 +99,11 @@ python sync_creds_and_locs.py
 
 1. Make sure `common.py` is updated with all relevant parameters
 
-2. Once you have updated the configuration, you can run the script with the following command:
+2. Update the catalog and schema mapping CSVs:
+   - catalog_mapping.csv: `source_catalog` should contain a list of the source catalog names to be migrated, and `target_storage_root` should contain the storage root location for each catalog in the target metastore
+   - schema_mapping.csv: `source_catalog` and `source_schema` should contain the catalogs and schemas in the source metastore, and `target_storage_root` should contain the storage root location for each schema in the target metastore
+
+3. Once you have updated the configuration, you can run the script with the following command:
 
 ```
 python sync_catalogs_and_schemas.py
