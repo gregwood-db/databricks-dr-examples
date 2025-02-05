@@ -29,11 +29,11 @@ This file maps Unity Catalog Credentials
 - target_sp_appid: AppID for Service Principal
 - target_sp_secret: Secret for Service Principal
 
-![Ext Location Mapping](docs/images/screenshot_azure_credential_mapping.png)
+![Ext Location Mapping](images/screenshot_azure_credential_mapping.png)
 *Example mapping file for UC Credentials*
 
 
-![Connector ID for Managed Identity](docs/images/underlined-connector-id-azure.png)
+![Connector ID for Managed Identity](images/underlined-connector-id-azure.png)
 *Example of where to find the  Resource ID for the Access Connector in Azure (target_mgd_id_identity)*
 
 
@@ -43,16 +43,16 @@ This file maps Unity Catalog Credentials
 - target_url: container to be used as target for external location
 - target_access_pt: Not Used For Azure
 
-![Ext Location Mapping](docs/images/screenshot_azure_ext_loc_mapping.png)
+![Ext Location Mapping](images/screenshot_azure_ext_loc_mapping.png)
 
 ## Populating catalog_mapping.csv
 
-![Catalog Mapping](docs/images/screenshot_catalog_mapping.png)
+![Catalog Mapping](images/screenshot_catalog_mapping.png)
 
 
 ## Populating schema_mapping.csv
 
-![Catalog Mapping](docs/images/screenshot_schema_mapping.png)
+![Catalog Mapping](images/screenshot_schema_mapping.png)
 
 
 

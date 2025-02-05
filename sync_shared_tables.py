@@ -108,8 +108,13 @@ try:
                                            authentication_type=AuthenticationType.DATABRICKS,
                                            data_recipient_global_metastore_id=metastore_id)
 except BadRequest:
-    print(f"Recipient with id {metastore_id} already exists. Skipping creation...")
-    recipient = [r for r in w_source.recipients.list() if r.data_recipient_global_metastore_id == metastore_id][0]
+
+    try:
+        recipient = [r for r in w_source.recipients.list() if r.data_recipient_global_metastore_id == metastore_id][0]
+        print(f"Recipient with id {metastore_id} already exists. Skipping creation...")
+    except IndexError:
+        print(f"Recipient with id {metastore_id} does not exist in source workspace. Please validate the id and create it manually.")
+        sys.exit()
 
 # get all tables in the primary metastore
 system_info = spark.sql("SELECT * FROM system.information_schema.tables")
