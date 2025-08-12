@@ -99,7 +99,7 @@ for catalog in source_catalogs:
                 (schema_df['source_schema'] == schema_name) &
                 (schema_df['source_catalog'] == catalog.name)].iloc[0])
         except (KeyError, IndexError):
-            print(f"Could not create catalog {catalog.name}. Please check mapping file.")
+            print(f"Could not create schema {catalog.name}.{schema_name}. Please check mapping file.")
             continue
 
         if storage_root:
